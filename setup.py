@@ -6,6 +6,13 @@ setuptools.setup(
     author="Brian Seel",
     author_email="brian.seel@baltimorecity.gov",
     description="Interface with the Ridesystems website",
-    packages=setuptools.find_packages(),
+    packages=['ridesystems'],
     python_requires='>=3.0',
+    package_dir = {'ridesystems': 'src'},
+    install_requires=[
+        'mechanize',
+        'requests',
+        'retry',
+        'bs4',
+    ]
 )

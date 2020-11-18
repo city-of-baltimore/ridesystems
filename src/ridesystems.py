@@ -20,14 +20,13 @@ import csv
 
 import mechanize
 import requests
+from retry import retry
 from bs4 import BeautifulSoup
 
-logging.basicConfig(format='%(asctime)s %(levelname)-8s %(message)s',
-                    level=logging.DEBUG,
-                    datefmt='%Y-%m-%d %H:%M:%S')
+logger = logging.getLogger(__name__)
 
 
-class Ridesystems:
+class Scraper:
     """Setup for Ridesystems session"""
 
     def __init__(self, username, password, baseurl="https://cityofbaltimore.ridesystems.net"):
@@ -39,6 +38,7 @@ class Ridesystems:
         self.baseurl = baseurl
         self._login(username, password)
 
+    @retry(tries=3, delay=10)
     def _login(self, username, password):
         self.browser.open("{}/login.aspx".format(self.baseurl))
         self.browser.select_form('aspnetForm')
@@ -55,6 +55,7 @@ class Ridesystems:
         soup = BeautifulSoup(page_contents, features="html.parser")
         assert soup.find('div', {'class': 'login-panel'}) is None, "Login failed"
 
+    @retry(tries=3, delay=10)
     def _make_response_and_submit(self, ctrl_dict, html):
         """
         Helper to regenerate a response, assign it to the form, and resubmit it. Used for postbacks
@@ -71,43 +72,80 @@ class Ridesystems:
 
         return self.browser.submit().read()
 
+    @retry(tries=3, delay=10)
     def get_otp(self, start_date, end_date):
-        """ Pulls the on time performance data """
-        resp = self.browser.open("{}/Secure/Admin/Reports/ReportViewer.aspx?Path=" \
-                                 "%2fOldRidesystems%2fPerformance+Reports%2fOn+Time+Performance".format(
-            self.baseurl)).read()
+        """ Pulls the on time performance data
+        :param start_date: The start date to search, inclusive. Searches starting from 12:00 AM
+        :param end_date: The end date to search, inclusive. Searches ending at 11:59:59 PM
+        :return: Returns an interator with each row being a dictionary wth the keys 'date', 'route', 'stop',
+        'blockid', 'scheduledarrivaltime', 'actualarrivaltime', 'scheduleddeparturetime', 'actualdeparturetime',
+                   'ontimestatus', 'vehicle
+
+        """
+        # Pull the page the first time to get the form that we will need to resubmit a few times
+        resp = self.browser.open("{}/Secure/Admin/Reports/ReportViewer.aspx?Path=%2fOldRidesystems%2fPerformance+"
+                                 "Reports%2fOn+Time+Performance".format(self.baseurl)).read()
         soup = BeautifulSoup(resp, features="html.parser")
-        saved_form = soup.find('form', id='aspnetForm').prettify()
+        html = soup.find('form', id='aspnetForm').prettify().encode('utf8')
 
         self.browser.select_form('aspnetForm')
         self.browser.form.set_all_readonly(False)
 
-        # set the controls
-        routes = [x.text.replace('\xa0', ' ') for x in soup.find_all('label', {
-            'for': re.compile(r'ctl00_MainContent_ssrsReportViewer_ctl08_ctl07_divDropDown_ctl0[1-9]')})]
+        ctrl_dict = {
+            # Start Date
+            'ctl00$MainContent$ssrsReportViewer$ctl08$ctl03$txtValue': start_date.strftime('%#m/%#d/%Y'),
+            # End Date
+            'ctl00$MainContent$ssrsReportViewer$ctl08$ctl05$txtValue': end_date.strftime('%#m/%#d/%Y 11:59:59 PM'),
+            # Seconds For Early
+            'ctl00$MainContent$ssrsReportViewer$ctl08$ctl11$txtValue': '30',
+            # Seconds For Late
+            'ctl00$MainContent$ssrsReportViewer$ctl08$ctl13$txtValue': '300',
+            # Status based on (departure)
+            'ctl00$MainContent$ssrsReportViewer$ctl08$ctl15$ddValue': ['1'],
+            # Force assign block (No)
+            'ctl00$MainContent$ssrsReportViewer$ctl08$ctl17$ddValue': ['2'],
+            # Status
+            'ctl00$MainContent$ssrsReportViewer$ctl08$ctl19$txtValue': 'On Time,Early,Late,Missing',
+            'ctl00$MainContent$ssrsReportViewer$ctl08$ctl19$divDropDown$ctl01$HiddenIndices': '0,1,2,3',
+            # Hours
+            'ctl00$MainContent$ssrsReportViewer$ctl08$ctl21$txtValue': ','.join([str(x) for x in range(24)]),
+            'ctl00$MainContent$ssrsReportViewer$ctl08$ctl21$divDropDown$ctl01$HiddenIndices':
+                ','.join([str(x) for x in range(24)]),
+            # Group Data
+            'ctl00$MainContent$ssrsReportViewer$ctl08$ctl23$ddValue': ['1'],
 
-        ctrl_dict = {'ctl00$MainContent$ssrsReportViewer$ctl08$ctl07$divDropDown$ctl01$HiddenIndices': '0,1,2,3',
-                     'ctl00$MainContent$ssrsReportViewer$ctl08$ctl03$txtValue': start_date.strftime('%m/%d/%Y'),
-                     'ctl00$MainContent$ssrsReportViewer$ctl08$ctl05$txtValue': end_date.strftime(
-                         '%m/%d/%Y 11:59:59 PM'),
-                     'ctl00$MainContent$ssrsReportViewer$ctl08$ctl19$txtValue': 'On Time,Early,Late,Missing',
-                     'ctl00$MainContent$ssrsReportViewer$ctl08$ctl21$txtValue':
-                         '0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23',
-                     'ctl00$MainContent$ssrsReportViewer$ctl15': 'standards',
-                     'ctl00$MainContent$ssrsReportViewer$ctl08$ctl07$txtValue': ','.join(routes),
-                     '__EVENTTARGET': 'ctl00$MainContent$ssrsReportViewer$ctl08$ctl07',
-                     '__ASYNCPOST': 'true',
-                     'ctl00$MainContent$scriptManager':
-                         'ctl00$MainContent$scriptManager|ctl00$MainContent$ssrsReportViewer$ctl08$ctl07'
-                     }
+            # Other values
+            'ctl00$MainContent$ssrsReportViewer$ctl15': 'standards',
+            'ctl00$MainContent$ssrsReportViewer$AsyncWait$HiddenCancelField': 'False',
+            '__EVENTTARGET': 'ctl00$MainContent$ssrsReportViewer$ctl08$ctl05',
+            '__ASYNCPOST': 'true',
+            'ctl00$MainContent$scriptManager':
+                'ctl00$MainContent$scriptManager|ctl00$MainContent$ssrsReportViewer$ctl08$ctl05'
+        }
 
         self._set_controls(ctrl_dict)
         resp = self.browser.submit().read()
+        soup = BeautifulSoup(resp, features='html.parser')
+
+        # set the controls
+        routes = [x.text.replace('\xa0', ' ') for x in soup.find_all('label', {
+            'for': re.compile(r'ctl00_MainContent_ssrsReportViewer_ctl08_ctl07_divDropDown_ctl(0[2-9]|[1-9][0-9]*)')})]
+
+        ctrl_dict['ctl00$MainContent$ssrsReportViewer$ctl08$ctl07$divDropDown$ctl01$HiddenIndices'] = \
+                         ','.join([str(x) for x in range(len(routes))])
+        ctrl_dict['ctl00$MainContent$ssrsReportViewer$ctl08$ctl07$txtValue'] = ','.join(routes)
+        ctrl_dict['__EVENTTARGET'] = 'ctl00$MainContent$ssrsReportViewer$ctl08$ctl07'
+        ctrl_dict['__ASYNCPOST'] = 'true'
+        ctrl_dict['ctl00$MainContent$scriptManager'] = \
+                  'ctl00$MainContent$scriptManager|ctl00$MainContent$ssrsReportViewer$ctl08$ctl07'
+
+        resp = self._make_response_and_submit(ctrl_dict, html)
 
         # turn the values in the page into a dictionary
         resp_dict = self.parse_ltiv_data(resp.decode())
 
         soup = BeautifulSoup(resp, features='html.parser')
+
         stops = [x.text.replace('\xa0', ' ') for x in soup.find_all('label', {
             'for': re.compile(r'ctl00_MainContent_ssrsReportViewer_ctl08_ctl09_divDropDown_ctl(0[2-9]|[1-9][0-9]*)')})]
 
@@ -119,10 +157,10 @@ class Ridesystems:
         ctrl_dict['__EVENTVALIDATION'] = resp_dict['__EVENTVALIDATION'][0]
         ctrl_dict['__EVENTTARGET'] = ''
         ctrl_dict['ctl00$MainContent$ssrsReportViewer$ctl08$ctl00'] = 'View Report'
+        ctrl_dict['ctl00$MainContent$ssrsReportViewer$ctl14'] = 'ltr'
         ctrl_dict['ctl00$MainContent$scriptManager'] = \
             'ctl00$MainContent$scriptManager|ctl00$MainContent$ssrsReportViewer$ctl08$ctl00'
 
-        html = saved_form.encode('utf8')
         resp = self._make_response_and_submit(ctrl_dict, html)
         response_url_base = re.search(r'"ExportUrlBase":"(.*?)"', resp.decode()).group(1)
 

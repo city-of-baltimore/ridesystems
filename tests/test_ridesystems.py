@@ -6,15 +6,21 @@ Should be called as test_ridesystems.py --username <username> --password <passwo
 
 from datetime import datetime, timedelta
 
+import logging
 import pytest
 
 from .. import ridesystems  # pylint:disable=relative-beyond-top-level
 
 
+logging.basicConfig(format='%(asctime)s %(levelname)-8s %(message)s',
+                    level=logging.DEBUG,
+                    datefmt='%Y-%m-%d %H:%M:%S')
+
+
 def test_login_failure():
     """Tests for login with bad username/password, which throws an exception"""
     with pytest.raises(AssertionError):
-        ridesystems.Ridesystems('invalidusername', 'invalidpassword')
+        ridesystems.Scraper('invalidusername', 'invalidpassword')
 
 
 def test_get_otp(username, password):
@@ -28,7 +34,38 @@ def test_get_otp(username, password):
     start_date = datetime.today() - timedelta(days=1)
     end_date = datetime.today() - timedelta(days=1)
 
-    rs_cls = ridesystems.Ridesystems(username, password)
+    rs_cls = ridesystems.Scraper(username, password)
+    otp_data = rs_cls.get_otp(start_date, end_date)
+
+    iters = 0
+    for row in otp_data:
+        assert isinstance(datetime.strptime(row['date'], '%m/%d/%Y'), datetime)
+        assert row['route'] is not None
+        assert row['stop'] is not None
+        assert row['blockid'] is not None
+        assert row['scheduledarrivaltime'] is not None
+        assert row['actualarrivaltime'] is not None
+        assert row['scheduleddeparturetime'] is not None
+        assert row['actualdeparturetime'] is not None
+        assert row['ontimestatus'] is not None
+        assert row['vehicle'] is not None
+        iters += 1
+
+    assert iters > 50
+
+
+def test_get_otp_apr_6(username, password):
+    """
+    Validate that we get valid data when we pull the on time performance data
+
+    Expected format
+    [[date, route, block_id, vehicle, stop, scheduled_dept_time, actual_dept_time],
+    ...]
+    """
+    start_date = datetime(2020, 4, 6)
+    end_date = datetime(2020, 4, 6)
+
+    rs_cls = ridesystems.Scraper(username, password)
     otp_data = rs_cls.get_otp(start_date, end_date)
 
     iters = 0
@@ -50,7 +87,7 @@ def test_get_otp(username, password):
 
 def test_parse_ltiv_data(username, password):
     """Tests the parse_ltiv_data method"""
-    rs_cls = ridesystems.Ridesystems(username, password)
+    rs_cls = ridesystems.Scraper(username, password)
 
     expect = {'Return': ('this', 'NONE')}
     actual = rs_cls.parse_ltiv_data('4|NONE|Return|this|')
