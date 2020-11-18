@@ -1,1 +1,6 @@
-mechanize
+mechanize~=0.4.5
+requests~=2.23.0
+bs4~=0.0.1
+beautifulsoup4~=4.8.2
+setuptools~=50.3.0
+pytest~=5.4.1
