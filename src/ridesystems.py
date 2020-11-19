@@ -132,12 +132,12 @@ class Scraper:
             'for': re.compile(r'ctl00_MainContent_ssrsReportViewer_ctl08_ctl07_divDropDown_ctl(0[2-9]|[1-9][0-9]*)')})]
 
         ctrl_dict['ctl00$MainContent$ssrsReportViewer$ctl08$ctl07$divDropDown$ctl01$HiddenIndices'] = \
-                         ','.join([str(x) for x in range(len(routes))])
+            ','.join([str(x) for x in range(len(routes))])
         ctrl_dict['ctl00$MainContent$ssrsReportViewer$ctl08$ctl07$txtValue'] = ','.join(routes)
         ctrl_dict['__EVENTTARGET'] = 'ctl00$MainContent$ssrsReportViewer$ctl08$ctl07'
         ctrl_dict['__ASYNCPOST'] = 'true'
         ctrl_dict['ctl00$MainContent$scriptManager'] = \
-                  'ctl00$MainContent$scriptManager|ctl00$MainContent$ssrsReportViewer$ctl08$ctl07'
+            'ctl00$MainContent$scriptManager|ctl00$MainContent$ssrsReportViewer$ctl08$ctl07'
 
         resp = self._make_response_and_submit(ctrl_dict, html)
 
