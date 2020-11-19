@@ -1,4 +1,4 @@
-name: Towing post commit steps
+name: Ridesystems post commit steps
 on: [push]
 jobs:
   build:
