@@ -13,15 +13,17 @@ CREATE TABLE [ccc_arrival_times2] (
 [ontimestatus] varchar(20),
 [vehicle] varchar(50) );
 """
+import csv
 import logging
 import re
+from datetime import date
 from io import StringIO
-import csv
+from typing import Dict, Any, Generator, Tuple
 
-import mechanize
+import mechanize  # type: ignore
 import requests
+from bs4 import BeautifulSoup  # type: ignore
 from retry import retry
-from bs4 import BeautifulSoup
 
 logger = logging.getLogger(__name__)
 
@@ -29,7 +31,7 @@ logger = logging.getLogger(__name__)
 class Scraper:
     """Setup for Ridesystems session"""
 
-    def __init__(self, username, password, baseurl="https://cityofbaltimore.ridesystems.net"):
+    def __init__(self, username: str, password: str, baseurl: str = "https://cityofbaltimore.ridesystems.net"):
         self.browser = mechanize.Browser()
         self.browser.addheaders = [('User-agent',
                                     'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 '
@@ -39,7 +41,7 @@ class Scraper:
         self._login(username, password)
 
     @retry(tries=3, delay=10)
-    def _login(self, username, password):
+    def _login(self, username: str, password: str) -> None:
         self.browser.open("{}/login.aspx".format(self.baseurl))
         self.browser.select_form('aspnetForm')
 
@@ -56,7 +58,7 @@ class Scraper:
         assert soup.find('div', {'class': 'login-panel'}) is None, "Login failed"
 
     @retry(tries=3, delay=10)
-    def _make_response_and_submit(self, ctrl_dict, html):
+    def _make_response_and_submit(self, ctrl_dict: Dict[str, str], html: str) -> str:
         """
         Helper to regenerate a response, assign it to the form, and resubmit it. Used for postbacks
         :param ctrl_dict: Dictionary of page control ids and the values they should be set to
@@ -73,7 +75,7 @@ class Scraper:
         return self.browser.submit().read()
 
     @retry(tries=3, delay=10)
-    def get_otp(self, start_date, end_date):
+    def get_otp(self, start_date: date, end_date: date) -> Generator[Dict[str, Any], None, None]:
         """ Pulls the on time performance data
         :param start_date: The start date to search, inclusive. Searches starting from 12:00 AM
         :param end_date: The end date to search, inclusive. Searches ending at 11:59:59 PM
@@ -82,6 +84,7 @@ class Scraper:
                    'ontimestatus', 'vehicle
 
         """
+        logger.info("Getting OTP report for %s to %s", start_date, end_date)
         # Pull the page the first time to get the form that we will need to resubmit a few times
         resp = self.browser.open("{}/Secure/Admin/Reports/ReportViewer.aspx?Path=%2fOldRidesystems%2fPerformance+"
                                  "Reports%2fOn+Time+Performance".format(self.baseurl)).read()
@@ -135,7 +138,6 @@ class Scraper:
             ','.join([str(x) for x in range(len(routes))])
         ctrl_dict['ctl00$MainContent$ssrsReportViewer$ctl08$ctl07$txtValue'] = ','.join(routes)
         ctrl_dict['__EVENTTARGET'] = 'ctl00$MainContent$ssrsReportViewer$ctl08$ctl07'
-        ctrl_dict['__ASYNCPOST'] = 'true'
         ctrl_dict['ctl00$MainContent$scriptManager'] = \
             'ctl00$MainContent$scriptManager|ctl00$MainContent$ssrsReportViewer$ctl08$ctl07'
 
@@ -162,7 +164,9 @@ class Scraper:
             'ctl00$MainContent$scriptManager|ctl00$MainContent$ssrsReportViewer$ctl08$ctl00'
 
         resp = self._make_response_and_submit(ctrl_dict, html)
-        response_url_base = re.search(r'"ExportUrlBase":"(.*?)"', resp.decode()).group(1)
+        response_url_base_group = re.search(r'"ExportUrlBase":"(.*?)"', resp.decode())
+        assert response_url_base_group is not None
+        response_url_base = response_url_base_group.group(1)
 
         resp_dict = self.parse_ltiv_data(resp.decode())
 
@@ -204,10 +208,15 @@ class Scraper:
                    'ontimestatus': row[8], 'vehicle': row[9]}
 
     @staticmethod
-    def parse_ltiv_data(data):
-        """ Parses the data that comes back from the aspx pages. Its in the format LENGTH|TYPE|ID|VALUE"""
+    def parse_ltiv_data(data: str) -> Dict[str, Tuple[str, str]]:
+        """
+        Parses the data that comes back from the aspx pages. Its in the format LENGTH|TYPE|ID|VALUE
+        :param data:
+        :return: Returns {ID: (VALUE, TYPE), ID: (VALUE, TYPE)}
+        """
 
-        def get_next_element(idata, ilength=None):
+        def get_next_element(idata: str, ilength: int = None) -> Tuple[str, str]:
+            """Parser that pulls off an element to the next delimiter, and optionally will read ilength bytes"""
             if ilength is not None:
                 assert ilength < len(idata) and idata[ilength] == '|', \
                     "Malformed input. Expected delimiter where there wasn't one. idata: {}".format(idata[:100])
@@ -219,8 +228,8 @@ class Scraper:
         ret = {}
 
         while data:
-            length, data = get_next_element(data)
-            length = int(length)
+            s_length, data = get_next_element(data)
+            length = int(s_length)
             data_type, data = get_next_element(data)
             data_id, data = get_next_element(data)
             value, data = get_next_element(data, length)
@@ -228,7 +237,7 @@ class Scraper:
             ret[data_id] = (value, data_type)
         return ret
 
-    def _set_controls(self, ctrl_dict):
+    def _set_controls(self, ctrl_dict: Dict[str, Any]) -> None:
         for ctrl_id, val in ctrl_dict.items():
             try:
                 ctrl = self.browser.form.find_control(name=ctrl_id)
@@ -239,7 +248,7 @@ class Scraper:
         self.browser.form.fixup()
         self._log_controls()
 
-    def _log_controls(self):
+    def _log_controls(self) -> None:
         logging.debug('\n'.join(
             ['%s: %s *%s*' % (c.name, c.value, c.disabled) if c.disabled else '%s: %s' % (c.name, c.value) for c in
              self.browser.form.controls]))

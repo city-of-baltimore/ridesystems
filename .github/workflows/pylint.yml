@@ -1,4 +1,4 @@
-name: Ridesystems post commit steps
+name: Ridesystems module post commit steps
 on: [push]
 jobs:
   build:
@@ -18,3 +18,7 @@ jobs:
         run: |
           pip install -U bandit -r requirements.txt
           bandit src tests
+      - name: Type checking
+        run: |
+          pip install -U mypy -r requirements.txt
+          mypy src

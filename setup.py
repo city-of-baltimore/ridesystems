@@ -2,7 +2,7 @@ import setuptools
 
 setuptools.setup(
     name="ridesystems",
-    version="0.1",
+    version="0.2",
     author="Brian Seel",
     author_email="brian.seel@baltimorecity.gov",
     description="Interface with the Ridesystems website",
