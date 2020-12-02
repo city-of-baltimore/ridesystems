@@ -1,4 +1,5 @@
 """ ridesystems module """
-from .ridesystems import Scraper
+from .reports import Reports
+from .api import API
 
-__all__ = ['Scraper']
+__all__ = ['Reports', 'API']

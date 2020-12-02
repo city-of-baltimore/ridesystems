@@ -1,7 +1,7 @@
 """
-Tests ridesystems.py
+Tests reports.py
 
-Should be called as test_ridesystems.py --username <username> --password <password>
+Should be called as test_reports.py --username <username> --password <password>
 """
 
 from datetime import datetime, timedelta
@@ -9,7 +9,7 @@ from datetime import datetime, timedelta
 import logging
 import pytest
 
-from .. import ridesystems  # pylint:disable=relative-beyond-top-level
+from .. import reports  # pylint:disable=relative-beyond-top-level
 
 
 logging.basicConfig(format='%(asctime)s %(levelname)-8s %(message)s',
@@ -17,13 +17,19 @@ logging.basicConfig(format='%(asctime)s %(levelname)-8s %(message)s',
                     datefmt='%Y-%m-%d %H:%M:%S')
 
 
+@pytest.fixture(name='reports_fixture')
+def fix_report(username, password):
+    """Setup for the tests"""
+    return reports.Reports(username, password)
+
+
 def test_login_failure():
     """Tests for login with bad username/password, which throws an exception"""
     with pytest.raises(AssertionError):
-        ridesystems.Scraper('invalidusername', 'invalidpassword')
+        reports.Reports('invalidusername', 'invalidpassword')
 
 
-def test_get_otp(username, password):
+def test_get_otp(reports_fixture):
     """
     Validate that we get valid data when we pull the on time performance data
 
@@ -34,8 +40,7 @@ def test_get_otp(username, password):
     start_date = datetime.today() - timedelta(days=1)
     end_date = datetime.today() - timedelta(days=1)
 
-    rs_cls = ridesystems.Scraper(username, password)
-    otp_data = rs_cls.get_otp(start_date, end_date)
+    otp_data = reports_fixture.get_otp(start_date, end_date)
 
     iters = 0
     for row in otp_data:
@@ -54,7 +59,7 @@ def test_get_otp(username, password):
     assert iters > 50
 
 
-def test_get_otp_apr_6(username, password):
+def test_get_otp_apr_6(reports_fixture):
     """
     Validate that we get valid data when we pull the on time performance data
 
@@ -65,8 +70,7 @@ def test_get_otp_apr_6(username, password):
     start_date = datetime(2020, 4, 6)
     end_date = datetime(2020, 4, 6)
 
-    rs_cls = ridesystems.Scraper(username, password)
-    otp_data = rs_cls.get_otp(start_date, end_date)
+    otp_data = reports_fixture.get_otp(start_date, end_date)
 
     iters = 0
     for row in otp_data:
@@ -85,37 +89,35 @@ def test_get_otp_apr_6(username, password):
     assert iters > 50
 
 
-def test_parse_ltiv_data(username, password):
+def test_parse_ltiv_data(reports_fixture):
     """Tests the parse_ltiv_data method"""
-    rs_cls = ridesystems.Scraper(username, password)
-
     expect = {'Return': ('this', 'NONE')}
-    actual = rs_cls.parse_ltiv_data('4|NONE|Return|this|')
+    actual = reports_fixture.parse_ltiv_data('4|NONE|Return|this|')
     assert compare_ltiv_data(expect, actual), \
         'Did not pass basic assertion. Expected {}. Got {}'.format(expect, actual)
 
     with pytest.raises(AssertionError):
-        rs_cls.parse_ltiv_data('4|NONE|Return|this')
+        reports_fixture.parse_ltiv_data('4|NONE|Return|this')
 
     expect = {'Return': ('this', 'NONE'), 'Something': ('abcdefghijklmnop', 'NONE')}
-    actual = rs_cls.parse_ltiv_data('4|NONE|Return|this|16|NONE|Something|abcdefghijklmnop|')
+    actual = reports_fixture.parse_ltiv_data('4|NONE|Return|this|16|NONE|Something|abcdefghijklmnop|')
     assert compare_ltiv_data(expect, actual), \
         'Did not pass second assertion. Expected {}. Got {}'.format(expect, actual)
 
     with pytest.raises(AssertionError):
-        rs_cls.parse_ltiv_data('3|NONE|Return|this|7|NONE|x|xxxxxxx|')
+        reports_fixture.parse_ltiv_data('3|NONE|Return|this|7|NONE|x|xxxxxxx|')
 
     expect = {'Return': ('this', 'NONE'), 'x': ('xxx|xxx', 'NONE')}
-    actual = rs_cls.parse_ltiv_data('4|NONE|Return|this|7|NONE|x|xxx|xxx|')
+    actual = reports_fixture.parse_ltiv_data('4|NONE|Return|this|7|NONE|x|xxx|xxx|')
     assert compare_ltiv_data(expect, actual), \
         'Did not pass extra delimiter test. Expected {}. Got {}'.format(expect, actual)
 
     expect = {}
-    actual = rs_cls.parse_ltiv_data('')
+    actual = reports_fixture.parse_ltiv_data('')
     assert compare_ltiv_data(expect, actual), 'Empty case failed. Expected {}. Got {}'.format(expect, actual)
 
     expect = {'': ('', '')}
-    actual = rs_cls.parse_ltiv_data('0||||')
+    actual = reports_fixture.parse_ltiv_data('0||||')
     assert compare_ltiv_data(expect, actual), 'Did not pass basic assertion. Expected {}. Got {}'.format(expect, actual)
 
 

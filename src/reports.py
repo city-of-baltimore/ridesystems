@@ -1,5 +1,8 @@
 """
-Scraper with Ridesystems website
+Reports with Ridesystems website
+
+Written independently by brian.seel@baltimorecity.gov. If this were written in collaboration with Ridesystems, there
+would just be a reasonable API offered.
 
 CREATE TABLE [ccc_arrival_times2] (
 [date] [date] NOT NULL,
@@ -28,7 +31,7 @@ from retry import retry
 logger = logging.getLogger(__name__)
 
 
-class Scraper:
+class Reports:
     """Setup for Ridesystems session"""
 
     def __init__(self, username: str, password: str, baseurl: str = "https://cityofbaltimore.ridesystems.net"):
@@ -185,9 +188,8 @@ class Scraper:
         csv_data = requests.get("{}{}CSV".format(self.baseurl, response_url_base.replace(r'\u0026', '&')),
                                 cookies=self.browser.cookiejar,
                                 headers={
-                                    'referer': 'https://cityofbaltimore.ridesystems.net/Secure/Admin/Reports/'
-                                               'ReportViewer.aspx?Path=%2fOldRidesystems%2fRidership%2fAll+Ridership+'
-                                               'By+Vehicle',
+                                    'referer': '{}/Secure/Admin/Reports/ReportViewer.aspx?Path=%2fOldRidesystems%2f'
+                                               'Ridership%2fAll+Ridership+By+Vehicle'.format(self.baseurl),
                                     'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 '
                                                   '(KHTML, like Gecko) Chrome/86.0.4240.111 Safari/537.36'},
                                 )
