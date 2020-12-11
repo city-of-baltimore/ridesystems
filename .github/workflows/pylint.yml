@@ -23,4 +23,6 @@ jobs:
       - name: Type checking
         run: |
           mypy src
-
+      - name: Pytest
+        run: |
+          pytest -vv --username { secrets.RIDESYSTEMS_USERNAME } --password { secrets.RIDESYSTEMS_PASSWORD }

@@ -60,7 +60,7 @@ class Reports:
         soup = BeautifulSoup(page_contents, features="html.parser")
         assert soup.find('div', {'class': 'login-panel'}) is None, "Login failed"
 
-    @retry(tries=3, delay=10)
+    @retry(tries=6, delay=15)
     def _make_response_and_submit(self, ctrl_dict: Dict[str, str], html: str) -> str:
         """
         Helper to regenerate a response, assign it to the form, and resubmit it. Used for postbacks
@@ -77,7 +77,7 @@ class Reports:
 
         return self.browser.submit().read()
 
-    @retry(tries=3, delay=10)
+    @retry(tries=6, delay=15)
     def get_otp(self, start_date: date, end_date: date) -> Generator[Dict[str, Any], None, None]:
         """ Pulls the on time performance data
         :param start_date: The start date to search, inclusive. Searches starting from 12:00 AM
