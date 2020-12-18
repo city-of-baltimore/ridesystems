@@ -11,9 +11,9 @@ from pathlib import Path
 
 import pytest  # type: ignore
 
-sys.path.insert(0, str(Path(__file__).parent.parent / 'src'))
+sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from reports import Reports  # pylint:disable=wrong-import-position,wrong-import-order  # noqa: E402  # type: ignore
+from src.reports import Reports  # pylint:disable=wrong-import-position,wrong-import-order  # noqa: E402
 
 logging.basicConfig(format='%(asctime)s %(levelname)-8s %(message)s',
                     level=logging.DEBUG,
