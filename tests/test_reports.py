@@ -13,7 +13,7 @@ import pytest  # type: ignore
 
 sys.path.insert(0, str(Path(__file__).parent.parent / 'src'))
 
-from reports import Reports  # pylint:disable=wrong-import-position,wrong-import-order  # noqa: E402
+from reports import Reports  # pylint:disable=wrong-import-position,wrong-import-order  # noqa: E402  # type: ignore
 
 logging.basicConfig(format='%(asctime)s %(levelname)-8s %(message)s',
                     level=logging.DEBUG,
