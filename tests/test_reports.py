@@ -4,29 +4,26 @@ Tests reports.py
 Should be called as test_reports.py --username <username> --password <password>
 """
 
-from datetime import datetime, timedelta
-
 import logging
-import pytest
+import sys
+from datetime import datetime, timedelta
+from pathlib import Path
 
-from .. import reports  # pylint:disable=relative-beyond-top-level
+import pytest  # type: ignore
 
+sys.path.insert(0, str(Path.cwd().parent))
+
+from src.reports import Reports  # pylint:disable=wrong-import-position,wrong-import-order  # noqa: E402
 
 logging.basicConfig(format='%(asctime)s %(levelname)-8s %(message)s',
                     level=logging.DEBUG,
                     datefmt='%Y-%m-%d %H:%M:%S')
 
 
-@pytest.fixture(name='reports_fixture')
-def fix_report(username, password):
-    """Setup for the tests"""
-    return reports.Reports(username, password)
-
-
 def test_login_failure():
     """Tests for login with bad username/password, which throws an exception"""
     with pytest.raises(AssertionError):
-        reports.Reports('invalidusername', 'invalidpassword')
+        Reports('invalidusername', 'invalidpassword')
 
 
 def test_get_otp(reports_fixture):
@@ -49,28 +46,24 @@ def test_get_otp(reports_fixture):
     ontimestatuses = set()
     vehicles = set()
 
-    with open('output.txt', 'w') as f:
-        for row in otp_data:
-            f.write("{}, {}, {}, {}, {}, {}, {}, {}, {}, {}\n".format(row['date'], row['route'], row['stop'], row['blockid'], row['scheduledarrivaltime'],
-                         row['actualarrivaltime'], row['scheduleddeparturetime'], row['actualdeparturetime'],
-                         row['ontimestatus'], row['vehicle']))
-            assert isinstance(datetime.strptime(row['date'], '%m/%d/%Y'), datetime)
-            assert row['route'] is not None
-            assert row['stop'] is not None
-            assert row['blockid'] is not None
-            assert row['scheduledarrivaltime'] is not None
-            assert row['actualarrivaltime'] is not None
-            assert row['scheduleddeparturetime'] is not None
-            assert row['actualdeparturetime'] is not None
-            assert row['ontimestatus'] is not None
-            assert row['vehicle'] is not None
+    for row in otp_data:
+        assert isinstance(datetime.strptime(row['date'], '%m/%d/%Y'), datetime)
+        assert row['route'] is not None
+        assert row['stop'] is not None
+        assert row['blockid'] is not None
+        assert row['scheduledarrivaltime'] is not None
+        assert row['actualarrivaltime'] is not None
+        assert row['scheduleddeparturetime'] is not None
+        assert row['actualdeparturetime'] is not None
+        assert row['ontimestatus'] is not None
+        assert row['vehicle'] is not None
 
-            routes.add(row['route'])
-            stops.add(row['stop'])
-            blockid.add(row['blockid'])
-            ontimestatuses.add(row['ontimestatus'])
-            vehicles.add(row['vehicle'])
-            iters += 1
+        routes.add(row['route'])
+        stops.add(row['stop'])
+        blockid.add(row['blockid'])
+        ontimestatuses.add(row['ontimestatus'])
+        vehicles.add(row['vehicle'])
+        iters += 1
 
     assert iters > 4000
     assert len(routes) >= 4
@@ -82,7 +75,8 @@ def test_get_otp(reports_fixture):
 
 def test_get_otp_apr_6(reports_fixture):
     """
-    Validate that we get valid data when we pull the on time performance data
+    Validate that we get valid data when we pull the on time performance data. April 6 was when RideSystems was doing
+    some odd stuff with their data, so its a good edgecase
 
     Expected format
     [[date, route, block_id, vehicle, stop, scheduled_dept_time, actual_dept_time],

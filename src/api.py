@@ -18,7 +18,7 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 from typing import Dict, Any, Optional, TypedDict, Union, List
 from datetime import datetime, date
 
-from retrying import retry  # type: ignore
+from tenacity import retry, wait_random_exponential, stop_after_attempt
 import requests
 
 # Note: We disable unsubscriptable-object because of bug bug: https://github.com/PyCQA/pylint/issues/3882 in pylint.
@@ -51,6 +51,9 @@ class Ridership(TypedDict):  # pylint:disable=too-few-public-methods,inherit-non
     """Used for type checking"""
     StartDate: RidershipDate
     EndDate: RidershipDate
+
+
+ApiDataTypes = Union[VehicleRouteStopEstimates, StopArrivalTimesDict, RouteSchedules, Ridership]  # pylint:disable=unsubscriptable-object
 
 
 class API:
@@ -373,8 +376,8 @@ class API:
         payload: Ridership = {"StartDate": start_date, "EndDate": end_date}
         return self._query("GetRidershipData", payload)
 
-    @retry(wait_fixed=3000, stop_max_attempt_number=5)
-    def _query(self, method_name: str, params: dict = None) -> Dict[str, Any]:
+    @retry(wait=wait_random_exponential(multiplier=1, max=60), stop=stop_after_attempt(7), reraise=True)
+    def _query(self, method_name: str, params: ApiDataTypes = None) -> Dict[str, Any]:
         payload = {"ApiKey": self.api_key}
         if params:
             payload.update(params)

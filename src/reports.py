@@ -21,12 +21,12 @@ import logging
 import re
 from datetime import date
 from io import StringIO
-from typing import Dict, Any, Generator, Tuple
+from typing import Any, Dict, List, Generator, Tuple, Union
 
 import mechanize  # type: ignore
 import requests
 from bs4 import BeautifulSoup  # type: ignore
-from tenacity import retry, wait_random_exponential
+from tenacity import retry, wait_random_exponential, stop_after_attempt
 
 logger = logging.getLogger(__name__)
 
@@ -43,7 +43,7 @@ class Reports:
         self.baseurl = baseurl
         self._login(username, password)
 
-    @retry(wait=wait_random_exponential(multiplier=1, max=60))
+    @retry(wait=wait_random_exponential(multiplier=1, max=60), stop=stop_after_attempt(7), reraise=True)
     def _login(self, username: str, password: str) -> None:
         self.browser.open("{}/login.aspx".format(self.baseurl))
         self.browser.select_form('aspnetForm')
@@ -60,8 +60,8 @@ class Reports:
         soup = BeautifulSoup(page_contents, features="html.parser")
         assert soup.find('div', {'class': 'login-panel'}) is None, "Login failed"
 
-    @retry(wait=wait_random_exponential(multiplier=1, max=60))
-    def _make_response_and_submit(self, ctrl_dict: Dict[str, str], html: str) -> str:
+    @retry(wait=wait_random_exponential(multiplier=1, max=60), stop=stop_after_attempt(7), reraise=True)
+    def _make_response_and_submit(self, ctrl_dict: Dict[str, Union[str, List]], html: str) -> str:
         """
         Helper to regenerate a response, assign it to the form, and resubmit it. Used for postbacks
         :param ctrl_dict: Dictionary of page control ids and the values they should be set to
@@ -77,8 +77,8 @@ class Reports:
 
         return self.browser.submit().read()
 
-    @retry(wait=wait_random_exponential(multiplier=1, max=60))
-    def get_otp(self, start_date: date, end_date: date) -> Generator[Dict[str, Any], None, None]:
+    @retry(wait=wait_random_exponential(multiplier=1, max=60), stop=stop_after_attempt(7), reraise=True)
+    def get_otp(self, start_date: date, end_date: date) -> Generator[Dict[str, Any], None, None]:  # pylint:disable=too-many-statements
         """ Pulls the on time performance data
         :param start_date: The start date to search, inclusive. Searches starting from 12:00 AM
         :param end_date: The end date to search, inclusive. Searches ending at 11:59:59 PM
@@ -97,7 +97,7 @@ class Reports:
         self.browser.select_form('aspnetForm')
         self.browser.form.set_all_readonly(False)
 
-        ctrl_dict = {
+        ctrl_dict: Dict[str, Union[str, List]] = {
             # Start Date
             'ctl00$MainContent$ssrsReportViewer$ctl08$ctl03$txtValue': start_date.strftime('%#m/%#d/%Y'),
             # End Date
