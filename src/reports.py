@@ -30,6 +30,9 @@ from tenacity import retry, wait_random_exponential, stop_after_attempt
 
 logger = logging.getLogger(__name__)
 
+# Note: We disable unsubscriptable-object because of bug bug: https://github.com/PyCQA/pylint/issues/3882 in pylint.
+# When that is fixed, we can remove the disables
+
 
 class Reports:
     """Setup for Ridesystems session"""
@@ -61,7 +64,7 @@ class Reports:
         assert soup.find('div', {'class': 'login-panel'}) is None, "Login failed"
 
     @retry(wait=wait_random_exponential(multiplier=1, max=60), stop=stop_after_attempt(7), reraise=True)
-    def _make_response_and_submit(self, ctrl_dict: Dict[str, Union[str, List]], html: str) -> str:
+    def _make_response_and_submit(self, ctrl_dict: Dict[str, Union[str, List]], html: str) -> str:  # pylint:disable=unsubscriptable-object
         """
         Helper to regenerate a response, assign it to the form, and resubmit it. Used for postbacks
         :param ctrl_dict: Dictionary of page control ids and the values they should be set to
@@ -97,7 +100,7 @@ class Reports:
         self.browser.select_form('aspnetForm')
         self.browser.form.set_all_readonly(False)
 
-        ctrl_dict: Dict[str, Union[str, List]] = {
+        ctrl_dict: Dict[str, Union[str, List]] = {  # pylint:disable=unsubscriptable-object
             # Start Date
             'ctl00$MainContent$ssrsReportViewer$ctl08$ctl03$txtValue': start_date.strftime('%#m/%#d/%Y'),
             # End Date
