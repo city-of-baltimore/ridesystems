@@ -43,20 +43,41 @@ def test_get_otp(reports_fixture):
     otp_data = reports_fixture.get_otp(start_date, end_date)
 
     iters = 0
-    for row in otp_data:
-        assert isinstance(datetime.strptime(row['date'], '%m/%d/%Y'), datetime)
-        assert row['route'] is not None
-        assert row['stop'] is not None
-        assert row['blockid'] is not None
-        assert row['scheduledarrivaltime'] is not None
-        assert row['actualarrivaltime'] is not None
-        assert row['scheduleddeparturetime'] is not None
-        assert row['actualdeparturetime'] is not None
-        assert row['ontimestatus'] is not None
-        assert row['vehicle'] is not None
-        iters += 1
+    routes = set()
+    stops = set()
+    blockid = set()
+    ontimestatuses = set()
+    vehicles = set()
 
-    assert iters > 50
+    with open('output.txt', 'w') as f:
+        for row in otp_data:
+            f.write("{}, {}, {}, {}, {}, {}, {}, {}, {}, {}\n".format(row['date'], row['route'], row['stop'], row['blockid'], row['scheduledarrivaltime'],
+                         row['actualarrivaltime'], row['scheduleddeparturetime'], row['actualdeparturetime'],
+                         row['ontimestatus'], row['vehicle']))
+            assert isinstance(datetime.strptime(row['date'], '%m/%d/%Y'), datetime)
+            assert row['route'] is not None
+            assert row['stop'] is not None
+            assert row['blockid'] is not None
+            assert row['scheduledarrivaltime'] is not None
+            assert row['actualarrivaltime'] is not None
+            assert row['scheduleddeparturetime'] is not None
+            assert row['actualdeparturetime'] is not None
+            assert row['ontimestatus'] is not None
+            assert row['vehicle'] is not None
+
+            routes.add(row['route'])
+            stops.add(row['stop'])
+            blockid.add(row['blockid'])
+            ontimestatuses.add(row['ontimestatus'])
+            vehicles.add(row['vehicle'])
+            iters += 1
+
+    assert iters > 4000
+    assert len(routes) >= 4
+    assert len(stops) >= 50
+    assert len(blockid) >= 4
+    assert len(ontimestatuses) == 4
+    assert len(vehicles) > 5
 
 
 def test_get_otp_apr_6(reports_fixture):

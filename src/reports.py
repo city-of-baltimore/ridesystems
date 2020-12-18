@@ -26,7 +26,7 @@ from typing import Dict, Any, Generator, Tuple
 import mechanize  # type: ignore
 import requests
 from bs4 import BeautifulSoup  # type: ignore
-from retry import retry
+from tenacity import retry, wait_random_exponential
 
 logger = logging.getLogger(__name__)
 
@@ -43,7 +43,7 @@ class Reports:
         self.baseurl = baseurl
         self._login(username, password)
 
-    @retry(tries=3, delay=10)
+    @retry(wait=wait_random_exponential(multiplier=1, max=60))
     def _login(self, username: str, password: str) -> None:
         self.browser.open("{}/login.aspx".format(self.baseurl))
         self.browser.select_form('aspnetForm')
@@ -60,7 +60,7 @@ class Reports:
         soup = BeautifulSoup(page_contents, features="html.parser")
         assert soup.find('div', {'class': 'login-panel'}) is None, "Login failed"
 
-    @retry(tries=3, delay=10)
+    @retry(wait=wait_random_exponential(multiplier=1, max=60))
     def _make_response_and_submit(self, ctrl_dict: Dict[str, str], html: str) -> str:
         """
         Helper to regenerate a response, assign it to the form, and resubmit it. Used for postbacks
@@ -77,7 +77,7 @@ class Reports:
 
         return self.browser.submit().read()
 
-    @retry(tries=3, delay=10)
+    @retry(wait=wait_random_exponential(multiplier=1, max=60))
     def get_otp(self, start_date: date, end_date: date) -> Generator[Dict[str, Any], None, None]:
         """ Pulls the on time performance data
         :param start_date: The start date to search, inclusive. Searches starting from 12:00 AM
@@ -193,6 +193,8 @@ class Reports:
                                     'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 '
                                                   '(KHTML, like Gecko) Chrome/86.0.4240.111 Safari/537.36'},
                                 )
+
+        assert csv_data, "Request failed with status code {}".format(csv_data.status_code)
 
         csv_iter = csv.reader(StringIO(csv_data.text), delimiter=',')
         logging.debug("Got %s bytes of data", len(csv_data.text))
