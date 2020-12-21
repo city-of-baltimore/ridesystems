@@ -1,3 +1,4 @@
+"""Test suite for src.api"""
 from datetime import date, datetime, timedelta
 import logging
 import random

@@ -425,5 +425,3 @@ class API:
         response = self.session.get("{}/Services/JSONPRelay.svc/GetRidershipData".format(self.base_url),
                                     params=payload)
         return response.json()
-
-
