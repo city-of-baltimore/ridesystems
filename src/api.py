@@ -75,7 +75,8 @@ class API:
         self.base_url = base_url
         self.session = requests.session()
 
-    def get_routes_for_map_with_schedule_with_encoded_line(self) -> Union[QueryResultList, QueryResult]:  # pylint:disable=unsubscriptable-object
+    @retry(wait=wait_random_exponential(multiplier=1, max=60), stop=stop_after_attempt(7), reraise=True)
+    def get_routes_for_map_with_schedule_with_encoded_line(self) -> QueryResultList:
         """
         Used to retrieve active Routes from Ride Systems. Also contains a link to a schedule for each particular route
 
@@ -128,9 +129,12 @@ class API:
             Latitude
             Longitude
         """
-        return self._query('GetRoutesForMapWithScheduleWithEncodedLine')
+        response = self.session.get(
+            "{}/Services/JSONPRelay.svc/GetRoutesForMapWithScheduleWithEncodedLine".format(self.base_url))
+        return response.json()
 
-    def get_map_vehicle_points(self) -> Union[QueryResultList, QueryResult]:  # pylint:disable=unsubscriptable-object
+    @retry(wait=wait_random_exponential(multiplier=1, max=60), stop=stop_after_attempt(7), reraise=True)
+    def get_map_vehicle_points(self) -> QueryResultList:
         """
         Return the map location for all active vehicles.
 
@@ -146,10 +150,12 @@ class API:
             IsOnRoute – Is the vehicle on Route?
             IsDelayed– Is the vehicle Delayed?
         """
-        return self._query('GetMapVehiclePoints')
+        response = self.session.get("{}/Services/JSONPRelay.svc/GetMapVehiclePoints".format(self.base_url))
+        return response.json()
 
+    @retry(wait=wait_random_exponential(multiplier=1, max=60), stop=stop_after_attempt(7), reraise=True)
     def get_vehicle_route_stop_estimates(self, vehicle_id: List[int],
-                                         quantity: int = 2) -> Union[QueryResultList, QueryResult]:  # pylint:disable=unsubscriptable-object
+                                         quantity: int = 2) -> QueryResultList:
         """Return {quantity} stop estimates for all active vehicles.
 
         :param vehicle_id: (list) List of integers of Vehicle ID’s to retrieve
@@ -177,11 +183,14 @@ class API:
 
         if vehicle_id:
             payload["vehicleIdStrings"] = ",".join(str(i) for i in vehicle_id)
-        return self._query("GetVehicleRouteStopEstimates", payload)
+        response = self.session.get("{}/Services/JSONPRelay.svc/GetVehicleRouteStopEstimates".format(self.base_url),
+                                    params=payload)
+        return response.json()
 
+    @retry(wait=wait_random_exponential(multiplier=1, max=60), stop=stop_after_attempt(7), reraise=True)
     def get_stop_arrival_times(self, times_per_stop: int = 1,
                                route_ids: List[int] = None,
-                               stop_ids: List[int] = None) -> Union[QueryResultList, QueryResult]:  # pylint:disable=unsubscriptable-object
+                               stop_ids: List[int] = None) -> QueryResultList:
         """
         Return stop arrival times for all vehicles.
 
@@ -201,9 +210,9 @@ class API:
             IsArriving – Is the vehicle arriving?
             EstimateTime – Estimated arrival Time of Day
             ScheduledTime – Scheduled arrival or departure Time of Day
-            IsDeparted– Has the vehicle departed?
-            ScheduledArrivalTime– Scheduled arrival Time of Day
-            ScheduledDepartureTime– Scheduled departure Time of Day
+            IsDeparted – Has the vehicle departed?
+            ScheduledArrivalTime – Scheduled arrival Time of Day
+            ScheduledDepartureTime – Scheduled departure Time of Day
             OnTimeStatus– 0 – On time, 2 – Early, 3 – Late
         """
         payload: StopArrivalTimesDict = {"timesPerStop": times_per_stop,
@@ -216,9 +225,12 @@ class API:
         if stop_ids:
             payload["routeStopIDs"] = ", ".join(map(str, stop_ids))
 
-        return self._query("GetStopArrivalTimes", payload)
+        response = self.session.get("{}/Services/JSONPRelay.svc/GetStopArrivalTimes".format(self.base_url),
+                                    params=payload)
+        return response.json()
 
-    def get_route_stop_arrivals(self, times_per_stop: int = 1) -> Union[QueryResultList, QueryResult]:  # pylint:disable=unsubscriptable-object
+    @retry(wait=wait_random_exponential(multiplier=1, max=60), stop=stop_after_attempt(7), reraise=True)
+    def get_route_stop_arrivals(self, times_per_stop: int = 1) -> QueryResultList:
         """
         Return stop arrival times for all vehicles.
         :param times_per_stop: (int) Optional, number of scheduled times to return.
@@ -242,9 +254,12 @@ class API:
                                          "routeIDs": None,
                                          "routeStopIDs": None,
                                          "ApiKey": self.api_key}
-        return self._query("GetRouteStopArrivals", payload)
+        response = self.session.get("{}/Services/JSONPRelay.svc/GetRouteStopArrivals".format(self.base_url),
+                                    params=payload)
+        return response.json()
 
-    def get_route_schedules(self, route_id: int = None) -> Union[QueryResultList, QueryResult]:  # pylint:disable=unsubscriptable-object
+    @retry(wait=wait_random_exponential(multiplier=1, max=60), stop=stop_after_attempt(7), reraise=True)
+    def get_route_schedules(self, route_id: int = None) -> QueryResultList:
         """
         Used to return scheduled times for a Route. This is used for cyclical routes, where the route runs twice an
         hour on the exact same path and schedule.
@@ -266,9 +281,12 @@ class API:
             MinutesAfterStart – Number of minutes after the start of the loop until arrival at this stop
         """
         payload: RouteSchedules = {"routeID": route_id, "ApiKey": self.api_key}
-        return self._query("GetRouteSchedules", payload)
+        response = self.session.get("{}/Services/JSONPRelay.svc/GetRouteSchedules".format(self.base_url),
+                                    params=payload)
+        return response.json()
 
-    def get_route_schedule_times(self, route_id: int = None) -> Union[QueryResultList, QueryResult]:  # pylint:disable=unsubscriptable-object
+    @retry(wait=wait_random_exponential(multiplier=1, max=60), stop=stop_after_attempt(7), reraise=True)
+    def get_route_schedule_times(self, route_id: int = None) -> QueryResultList:
         """
         Used to return times in the day that a Route is active.
 
@@ -284,9 +302,12 @@ class API:
             ServerTimeUTC– UTC Current Time of day
         """
         payload: RouteSchedules = {"routeID": route_id, "ApiKey": self.api_key}
-        return self._query("GetRouteScheduleTimes", payload)
+        response = self.session.get("{}/Services/JSONPRelay.svc/GetRouteScheduleTimes".format(self.base_url),
+                                    params=payload)
+        return response.json()
 
-    def get_routes(self, route_id: int = None) -> Union[QueryResultList, QueryResult]:  # pylint:disable=unsubscriptable-object
+    @retry(wait=wait_random_exponential(multiplier=1, max=60), stop=stop_after_attempt(7), reraise=True)
+    def get_routes(self, route_id: int = None) -> QueryResultList:
         """
         Abbreviated view of all active Routes on Ride Systems. Used for Smart Phones where data size is a limiting
         factor.
@@ -306,9 +327,11 @@ class API:
             UseScheduleTripsInPassengerCounter– Not used
         """
         payload: RouteSchedules = {"routeID": route_id, "ApiKey": self.api_key}
-        return self._query("GetRoutes", payload)
+        response = self.session.get("{}/Services/JSONPRelay.svc/GetRoutes".format(self.base_url), params=payload)
+        return response.json()
 
-    def get_stops(self, route_id: int = None) -> Union[QueryResultList, QueryResult]:  # pylint:disable=unsubscriptable-object
+    @retry(wait=wait_random_exponential(multiplier=1, max=60), stop=stop_after_attempt(7), reraise=True)
+    def get_stops(self, route_id: int = None) -> QueryResultList:
         """
         Abbreviated view of all active Stops on a route. Used for Smart Phones where data size is a limiting factor.
 
@@ -331,9 +354,11 @@ class API:
             Heading- Not used
         """
         payload: RouteSchedules = {"routeID": route_id, "ApiKey": self.api_key}
-        return self._query("GetStops", payload)
+        response = self.session.get("{}/Services/JSONPRelay.svc/GetStops".format(self.base_url), params=payload)
+        return response.json()
 
-    def get_markers(self, route_id: int = None) -> Union[QueryResultList, QueryResult]:  # pylint:disable=unsubscriptable-object
+    @retry(wait=wait_random_exponential(multiplier=1, max=60), stop=stop_after_attempt(7), reraise=True)
+    def get_markers(self, route_id: int = None) -> QueryResultList:
         """
         Abbreviated view of all active Landmarks on a route. Used for Smart Phones where data size is a limiting factor.
 
@@ -347,22 +372,29 @@ class API:
             Longitude
         """
         payload: RouteSchedules = {"routeID": route_id, "ApiKey": self.api_key}
-        return self._query("GetMarkers", payload)
+        response = self.session.get("{}/Services/JSONPRelay.svc/GetMarkers".format(self.base_url),
+                                    params=payload)
+        return response.json()
 
-    def get_map_config(self) -> Union[QueryResultList, QueryResult]:  # pylint:disable=unsubscriptable-object
+    @retry(wait=wait_random_exponential(multiplier=1, max=60), stop=stop_after_attempt(7), reraise=True)
+    def get_map_config(self) -> QueryResult:
         """
         Returns settings that are used for laying out the map
 
-        :return MapConfig: (list of dictionaries) See docs for return information
+        :return MapConfig: See docs for return information
         """
-        return self._query("GetMapConfig")
+        response = self.session.get("{}/Services/JSONPRelay.svc/GetMapConfig".format(self.base_url))
+        return response.json()
 
-    def get_routes_for_map(self) -> Union[QueryResultList, QueryResult]:  # pylint:disable=unsubscriptable-object
+    @retry(wait=wait_random_exponential(multiplier=1, max=60), stop=stop_after_attempt(7), reraise=True)
+    def get_routes_for_map(self) -> QueryResultList:
         """Return the routes with Vehicle Route Name, Vehicle ID, and all stops, etc."""
-        return self._query("GetRoutesForMap")
+        response = self.session.get("{}/Services/JSONPRelay.svc/GetRoutesForMap".format(self.base_url))
+        return response.json()
 
+    @retry(wait=wait_random_exponential(multiplier=1, max=60), stop=stop_after_attempt(7), reraise=True)
     def get_ridership_data(self, start_date: RidershipDate,
-                           end_date: RidershipDate) -> Union[QueryResultList, QueryResult]:  # pylint:disable=unsubscriptable-object
+                           end_date: RidershipDate) -> QueryResultList:
         """
         Return the ridership from an APC
 
@@ -390,9 +422,6 @@ class API:
             VehicleID
         """
         payload: Ridership = {"StartDate": start_date, "EndDate": end_date, "ApiKey": self.api_key}
-        return self._query("GetRidershipData", payload)
-
-    @retry(wait=wait_random_exponential(multiplier=1, max=60), stop=stop_after_attempt(7), reraise=True)
-    def _query(self, method_name: str, params: ApiDataTypes = None) -> Union[QueryResultList, QueryResult]:  # pylint:disable=unsubscriptable-object
-        response = self.session.get("{}/Services/JSONPRelay.svc/{}".format(self.base_url, method_name), params=params)
+        response = self.session.get("{}/Services/JSONPRelay.svc/GetRidershipData".format(self.base_url),
+                                    params=payload)
         return response.json()
