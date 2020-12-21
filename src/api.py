@@ -31,17 +31,20 @@ class StopArrivalTimesDict(TypedDict):  # pylint:disable=too-few-public-methods,
     timesPerStop: int
     routeIDs: Optional[str]  # pylint:disable=unsubscriptable-object
     routeStopIDs: Optional[str]  # pylint:disable=unsubscriptable-object
+    ApiKey: Optional[str]  # pylint:disable=unsubscriptable-object
 
 
 class VehicleRouteStopEstimates(TypedDict):  # pylint:disable=too-few-public-methods,inherit-non-class
     """Used for type checking"""
     quantity: str
     vehicleIdStrings: Optional[str]  # pylint:disable=unsubscriptable-object
+    ApiKey: Optional[str]  # pylint:disable=unsubscriptable-object
 
 
 class RouteSchedules(TypedDict):  # pylint:disable=too-few-public-methods,inherit-non-class
     """Used for type checking"""
     routeID: Optional[int]  # pylint:disable=unsubscriptable-object
+    ApiKey: Optional[str]  # pylint:disable=unsubscriptable-object
 
 
 RidershipDate = Union[date, datetime]  # pylint:disable=unsubscriptable-object
@@ -51,16 +54,19 @@ class Ridership(TypedDict):  # pylint:disable=too-few-public-methods,inherit-non
     """Used for type checking"""
     StartDate: RidershipDate
     EndDate: RidershipDate
+    ApiKey: Optional[str]  # pylint:disable=unsubscriptable-object
 
 
 ApiDataTypes = Union[VehicleRouteStopEstimates, StopArrivalTimesDict, RouteSchedules, Ridership]  # pylint:disable=unsubscriptable-object
+QueryResult = Dict[str, Any]
+QueryResultList = List[QueryResult]
 
 
 class API:
     """Wrapper for the Ride Systems API. Their API is pretty terrible, so a lot of functionality is in the scraper from
     ridesystems.reports.Reports"""
 
-    def __init__(self, api_key, base_url="https://cityofbaltimore.ridesystems.net"):
+    def __init__(self, api_key: str, base_url="https://cityofbaltimore.ridesystems.net"):
         """
         :param api_key: Ridesystems API key (although nothing really happens if you don't provide one. RS doesn't check)
         :param base_url: Base url of your Ride Systems instance
@@ -69,7 +75,7 @@ class API:
         self.base_url = base_url
         self.session = requests.session()
 
-    def get_routes_for_map_with_schedule_with_encoded_line(self) -> Dict[str, Any]:
+    def get_routes_for_map_with_schedule_with_encoded_line(self) -> Union[QueryResultList, QueryResult]:  # pylint:disable=unsubscriptable-object
         """
         Used to retrieve active Routes from Ride Systems. Also contains a link to a schedule for each particular route
 
@@ -124,7 +130,7 @@ class API:
         """
         return self._query('GetRoutesForMapWithScheduleWithEncodedLine')
 
-    def get_map_vehicle_points(self) -> Dict[str, Any]:
+    def get_map_vehicle_points(self) -> Union[QueryResultList, QueryResult]:  # pylint:disable=unsubscriptable-object
         """
         Return the map location for all active vehicles.
 
@@ -142,7 +148,8 @@ class API:
         """
         return self._query('GetMapVehiclePoints')
 
-    def get_vehicle_route_stop_estimates(self, vehicle_id: list, quantity: int = 2) -> Dict[str, Any]:
+    def get_vehicle_route_stop_estimates(self, vehicle_id: List[int],
+                                         quantity: int = 2) -> Union[QueryResultList, QueryResult]:  # pylint:disable=unsubscriptable-object
         """Return {quantity} stop estimates for all active vehicles.
 
         :param vehicle_id: (list) List of integers of Vehicle ID’s to retrieve
@@ -164,7 +171,9 @@ class API:
             OnTimeStatus– 0 – On time, 2 – Early, 3 – Late
 
         """
-        payload: VehicleRouteStopEstimates = {"quantity": str(quantity), "vehicleIdStrings": None}
+        payload: VehicleRouteStopEstimates = {"quantity": str(quantity),
+                                              "vehicleIdStrings": None,
+                                              "ApiKey": self.api_key}
 
         if vehicle_id:
             payload["vehicleIdStrings"] = ",".join(str(i) for i in vehicle_id)
@@ -172,7 +181,7 @@ class API:
 
     def get_stop_arrival_times(self, times_per_stop: int = 1,
                                route_ids: List[int] = None,
-                               stop_ids: list = None) -> Dict[str, Any]:
+                               stop_ids: List[int] = None) -> Union[QueryResultList, QueryResult]:  # pylint:disable=unsubscriptable-object
         """
         Return stop arrival times for all vehicles.
 
@@ -197,16 +206,19 @@ class API:
             ScheduledDepartureTime– Scheduled departure Time of Day
             OnTimeStatus– 0 – On time, 2 – Early, 3 – Late
         """
-        payload: StopArrivalTimesDict = {"timesPerStop": times_per_stop, "routeIDs": None, "routeStopIDs": None}
+        payload: StopArrivalTimesDict = {"timesPerStop": times_per_stop,
+                                         "routeIDs": None,
+                                         "routeStopIDs": None,
+                                         "ApiKey": self.api_key}
         if route_ids:
             payload["routeIDs"] = ", ".join([str(x) for x in route_ids])
 
         if stop_ids:
-            payload["routeStopIDs"] = ", ".join(stop_ids)
+            payload["routeStopIDs"] = ", ".join(map(str, stop_ids))
 
         return self._query("GetStopArrivalTimes", payload)
 
-    def get_route_stop_arrivals(self, times_per_stop: int = 1) -> Dict[str, Any]:
+    def get_route_stop_arrivals(self, times_per_stop: int = 1) -> Union[QueryResultList, QueryResult]:  # pylint:disable=unsubscriptable-object
         """
         Return stop arrival times for all vehicles.
         :param times_per_stop: (int) Optional, number of scheduled times to return.
@@ -215,7 +227,7 @@ class API:
             RouteID - value representing the route
             RouteStopID - value representing the stop
             ScheduledTimes - dictionary with the following values for the RouteStopID
-                ArrivalTimeUTC - scheduled arrival time
+                ArrivalTimeUTC - scheduled arrival tim->e
                 AssignedVehicleId - VehicleID assigned to the block with this scheduled arrival
                 Block - string identifying the block assigned to the next arrival
                 DepartureTimeUTC - scheduled stop departure time
@@ -226,10 +238,13 @@ class API:
                 VehicleId – ID of Vehicle
         """
 
-        payload: StopArrivalTimesDict = {"timesPerStop": times_per_stop, "routeIDs": None, "routeStopIDs": None}
+        payload: StopArrivalTimesDict = {"timesPerStop": times_per_stop,
+                                         "routeIDs": None,
+                                         "routeStopIDs": None,
+                                         "ApiKey": self.api_key}
         return self._query("GetRouteStopArrivals", payload)
 
-    def get_route_schedules(self, route_id: int = None) -> Dict[str, Any]:
+    def get_route_schedules(self, route_id: int = None) -> Union[QueryResultList, QueryResult]:  # pylint:disable=unsubscriptable-object
         """
         Used to return scheduled times for a Route. This is used for cyclical routes, where the route runs twice an
         hour on the exact same path and schedule.
@@ -250,10 +265,10 @@ class API:
             RouteStopID – Unique Identifier for a Stop on a Route
             MinutesAfterStart – Number of minutes after the start of the loop until arrival at this stop
         """
-        payload: RouteSchedules = {"routeID": route_id} if route_id else {"routeID": None}
+        payload: RouteSchedules = {"routeID": route_id, "ApiKey": self.api_key}
         return self._query("GetRouteSchedules", payload)
 
-    def get_route_schedule_times(self, route_id: int = None) -> Dict[str, Any]:
+    def get_route_schedule_times(self, route_id: int = None) -> Union[QueryResultList, QueryResult]:  # pylint:disable=unsubscriptable-object
         """
         Used to return times in the day that a Route is active.
 
@@ -268,10 +283,10 @@ class API:
             ServerTime– Current time of day (in MST)
             ServerTimeUTC– UTC Current Time of day
         """
-        payload: RouteSchedules = {"routeID": route_id} if route_id else {"routeID": None}
+        payload: RouteSchedules = {"routeID": route_id, "ApiKey": self.api_key}
         return self._query("GetRouteScheduleTimes", payload)
 
-    def get_routes(self, route_id: int = None) -> Dict[str, Any]:
+    def get_routes(self, route_id: int = None) -> Union[QueryResultList, QueryResult]:  # pylint:disable=unsubscriptable-object
         """
         Abbreviated view of all active Routes on Ride Systems. Used for Smart Phones where data size is a limiting
         factor.
@@ -290,10 +305,10 @@ class API:
             HideRouteLine – Setting on whether to show the Route Line
             UseScheduleTripsInPassengerCounter– Not used
         """
-        payload: RouteSchedules = {"routeID": route_id} if route_id else {"routeID": None}
+        payload: RouteSchedules = {"routeID": route_id, "ApiKey": self.api_key}
         return self._query("GetRoutes", payload)
 
-    def get_stops(self, route_id: int = None) -> Dict[str, Any]:
+    def get_stops(self, route_id: int = None) -> Union[QueryResultList, QueryResult]:  # pylint:disable=unsubscriptable-object
         """
         Abbreviated view of all active Stops on a route. Used for Smart Phones where data size is a limiting factor.
 
@@ -309,16 +324,16 @@ class API:
             MaxZoomLevel –Reflects the zoom level to start showing this stop to the user
             ShowEstimatesOnMap – Reflects setting on whether to show the estimates for this stop on the map
             panel
-            ShowDefaultedOnMap –Reflects whether to show this stop on the map
+            ShowDefaultedOnMap – Reflects whether to show this stop on the map
             MapPoints – GPS points that make up the path to the next stop
             Latitude
             Longitude
             Heading- Not used
         """
-        payload: RouteSchedules = {"routeID": route_id} if route_id else {"routeID": None}
+        payload: RouteSchedules = {"routeID": route_id, "ApiKey": self.api_key}
         return self._query("GetStops", payload)
 
-    def get_markers(self, route_id: int = None) -> Dict[str, Any]:
+    def get_markers(self, route_id: int = None) -> Union[QueryResultList, QueryResult]:  # pylint:disable=unsubscriptable-object
         """
         Abbreviated view of all active Landmarks on a route. Used for Smart Phones where data size is a limiting factor.
 
@@ -331,10 +346,10 @@ class API:
             Latitude
             Longitude
         """
-        payload: RouteSchedules = {"routeID": route_id} if route_id else {"routeID": None}
+        payload: RouteSchedules = {"routeID": route_id, "ApiKey": self.api_key}
         return self._query("GetMarkers", payload)
 
-    def get_map_config(self) -> Dict[str, Any]:
+    def get_map_config(self) -> Union[QueryResultList, QueryResult]:  # pylint:disable=unsubscriptable-object
         """
         Returns settings that are used for laying out the map
 
@@ -342,11 +357,12 @@ class API:
         """
         return self._query("GetMapConfig")
 
-    def get_routes_for_map(self) -> Dict[str, Any]:
+    def get_routes_for_map(self) -> Union[QueryResultList, QueryResult]:  # pylint:disable=unsubscriptable-object
         """Return the routes with Vehicle Route Name, Vehicle ID, and all stops, etc."""
         return self._query("GetRoutesForMap")
 
-    def get_ridership_data(self, start_date: RidershipDate, end_date: RidershipDate) -> Dict[str, Any]:
+    def get_ridership_data(self, start_date: RidershipDate,
+                           end_date: RidershipDate) -> Union[QueryResultList, QueryResult]:  # pylint:disable=unsubscriptable-object
         """
         Return the ridership from an APC
 
@@ -373,14 +389,10 @@ class API:
             Vehicle
             VehicleID
         """
-        payload: Ridership = {"StartDate": start_date, "EndDate": end_date}
+        payload: Ridership = {"StartDate": start_date, "EndDate": end_date, "ApiKey": self.api_key}
         return self._query("GetRidershipData", payload)
 
     @retry(wait=wait_random_exponential(multiplier=1, max=60), stop=stop_after_attempt(7), reraise=True)
-    def _query(self, method_name: str, params: ApiDataTypes = None) -> Dict[str, Any]:
-        payload = {"ApiKey": self.api_key}
-        if params:
-            payload.update(params)
-
-        response = self.session.get("{}/Services/JSONPRelay.svc/{}".format(self.base_url, method_name), params=payload)
+    def _query(self, method_name: str, params: ApiDataTypes = None) -> Union[QueryResultList, QueryResult]:  # pylint:disable=unsubscriptable-object
+        response = self.session.get("{}/Services/JSONPRelay.svc/{}".format(self.base_url, method_name), params=params)
         return response.json()
