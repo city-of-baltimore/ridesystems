@@ -11,7 +11,7 @@ from pathlib import Path
 
 import pytest  # type: ignore
 
-sys.path.insert(0, str(Path.cwd().parent))
+sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from src.reports import Reports  # pylint:disable=wrong-import-position,wrong-import-order  # noqa: E402
 

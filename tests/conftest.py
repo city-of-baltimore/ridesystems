@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest  # type: ignore
 
-sys.path.insert(0, str(Path.cwd().parent))
+sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from src.reports import Reports  # pylint:disable=wrong-import-position,wrong-import-order  # noqa: E402
 
@@ -30,4 +30,6 @@ def password_fixture(request):
 @pytest.fixture(name='reports_fixture')
 def fix_report(username, password):
     """Setup for the tests"""
+    assert username, "Username required (use --username)"
+    assert password, "Password required (use --password)"
     return Reports(username, password)
