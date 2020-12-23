@@ -6,21 +6,6 @@ jobs:
     steps:
       - uses: actions/checkout@v1
       - uses: actions/setup-python@v1
-      - name: Install dependencies
-        run: |
-          pip install -r requirements.txt
-      - name: Lint with pylint
-        run: |
-          pylint src tests
-      - name: Lint with flake8
-        run : |
-          flake8 --config=.flake8 src tests
-      - name: Look for security issues with Bandit
-        run: |
-          bandit src tests
-      - name: Type checking
-        run: |
-          mypy src tests
-      - name: Testing
+      - name: Tox
         run: |
           tox -vv --username ${{ secrets.RIDESYSTEMS_USERNAME }} --password ${{ secrets.RIDESYSTEMS_PASSWORD }}

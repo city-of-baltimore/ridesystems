@@ -1,11 +1,3 @@
-pip
-pylint
-flake8
-bandit
-mypy
-wheel
-tox
-
 mechanize~=0.4.5
 requests~=2.25.1
 bs4~=0.0.1
