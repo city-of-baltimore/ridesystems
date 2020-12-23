@@ -9,4 +9,4 @@ jobs:
       - name: Tox
         run: |
           pip install tox
-          tox -- -vv --username ${{ secrets.RIDESYSTEMS_USERNAME }} --password ${{ secrets.RIDESYSTEMS_PASSWORD }}
+          tox -- --username ${{ secrets.RIDESYSTEMS_USERNAME }} --password ${{ secrets.RIDESYSTEMS_PASSWORD }}

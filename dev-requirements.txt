@@ -5,3 +5,5 @@ bandit
 mypy
 wheel
 tox
+coverage
+pytest-cov
