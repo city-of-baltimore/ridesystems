@@ -5,15 +5,11 @@ Should be called as test_reports.py --username <username> --password <password>
 """
 
 import logging
-import sys
 from datetime import datetime, timedelta
-from pathlib import Path
 
 import pytest  # type: ignore
 
-sys.path.insert(0, str(Path(__file__).parent.parent))
-
-from src.reports import Reports  # pylint:disable=wrong-import-position,wrong-import-order  # noqa: E402
+from ridesystems.reports import Reports  # pylint:disable=wrong-import-position,wrong-import-order  # noqa: E402
 
 logging.basicConfig(format='%(asctime)s %(levelname)-8s %(message)s',
                     level=logging.DEBUG,
