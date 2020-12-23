@@ -1,13 +1,8 @@
 """Pytest configuration"""
-import sys
-from pathlib import Path
-
 import pytest  # type: ignore
 
-sys.path.insert(0, str(Path(__file__).parent.parent))
-
-from src.reports import Reports  # pylint:disable=wrong-import-position,wrong-import-order  # noqa: E402
-from src.api import API  # pylint:disable=wrong-import-position,wrong-import-order  # noqa: E402
+from ridesystems.reports import Reports
+from ridesystems.api import API
 
 
 def pytest_addoption(parser):
