@@ -5,8 +5,9 @@ Should be called as test_reports.py --username <username> --password <password>
 """
 
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime, time, timedelta
 
+import pandas as pd
 import pytest  # type: ignore
 
 from ridesystems.reports import Reports  # pylint:disable=wrong-import-position,wrong-import-order  # noqa: E402
@@ -42,17 +43,17 @@ def test_get_otp(reports_fixture):
     ontimestatuses = set()
     vehicles = set()
 
-    for row in otp_data:
-        assert isinstance(datetime.strptime(row['date'], '%m/%d/%Y'), datetime)
-        assert row['route'] is not None
-        assert row['stop'] is not None
-        assert row['blockid'] is not None
-        assert row['scheduledarrivaltime'] is not None
-        assert row['actualarrivaltime'] is not None
-        assert row['scheduleddeparturetime'] is not None
-        assert row['actualdeparturetime'] is not None
-        assert row['ontimestatus'] is not None
-        assert row['vehicle'] is not None
+    for _, row in otp_data.iterrows():
+        assert isinstance(row['date'], datetime)
+        assert isinstance(row['route'], str)
+        assert isinstance(row['stop'], str)
+        assert isinstance(row['blockid'], str)
+        assert isinstance(row['scheduledarrivaltime'], time) or row['scheduledarrivaltime'] is pd.NaT
+        assert isinstance(row['actualarrivaltime'], time) or row['actualarrivaltime'] is pd.NaT
+        assert isinstance(row['scheduleddeparturetime'], time) or row['scheduleddeparturetime'] is pd.NaT
+        assert isinstance(row['actualdeparturetime'], time) or row['actualdeparturetime'] is pd.NaT
+        assert isinstance(row['ontimestatus'], str)
+        assert isinstance(row['vehicle'], str)
 
         routes.add(row['route'])
         stops.add(row['stop'])
@@ -72,7 +73,7 @@ def test_get_otp(reports_fixture):
 def test_get_otp_apr_6(reports_fixture):
     """
     Validate that we get valid data when we pull the on time performance data. April 6 was when RideSystems was doing
-    some odd stuff with their data, so its a good edgecase
+    some odd stuff with their data, so its a good edge-case
 
     Expected format
     [[date, route, block_id, vehicle, stop, scheduled_dept_time, actual_dept_time],
@@ -84,17 +85,17 @@ def test_get_otp_apr_6(reports_fixture):
     otp_data = reports_fixture.get_otp(start_date, end_date)
 
     iters = 0
-    for row in otp_data:
-        assert isinstance(datetime.strptime(row['date'], '%m/%d/%Y'), datetime)
-        assert row['route'] is not None
-        assert row['stop'] is not None
-        assert row['blockid'] is not None
-        assert row['scheduledarrivaltime'] is not None
-        assert row['actualarrivaltime'] is not None
-        assert row['scheduleddeparturetime'] is not None
-        assert row['actualdeparturetime'] is not None
-        assert row['ontimestatus'] is not None
-        assert row['vehicle'] is not None
+    for _, row in otp_data.iterrows():
+        assert isinstance(row['date'], datetime)
+        assert isinstance(row['route'], str)
+        assert isinstance(row['stop'], str)
+        assert isinstance(row['blockid'], str)
+        assert isinstance(row['scheduledarrivaltime'], time) or row['scheduledarrivaltime'] is pd.NaT
+        assert isinstance(row['actualarrivaltime'], time) or row['actualarrivaltime'] is pd.NaT
+        assert isinstance(row['scheduleddeparturetime'], time) or row['scheduleddeparturetime'] is pd.NaT
+        assert isinstance(row['actualdeparturetime'], time) or row['actualdeparturetime'] is pd.NaT
+        assert isinstance(row['ontimestatus'], str)
+        assert isinstance(row['vehicle'], str)
         iters += 1
 
     assert iters > 50
