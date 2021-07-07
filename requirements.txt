@@ -2,9 +2,5 @@ mechanize~=0.4.5
 requests~=2.25.1
 bs4~=0.0.1
 beautifulsoup4~=4.9.3
-setuptools~=51.1.0.post20201221
-pytest~=6.2.1
-
-typing~=3.7.4.3
-tenacity~=6.3.1
-
+tenacity~=7.0.0
+pandas~=1.3.0

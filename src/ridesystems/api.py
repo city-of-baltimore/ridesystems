@@ -21,43 +21,40 @@ from datetime import datetime, date
 from tenacity import retry, wait_random_exponential, stop_after_attempt
 import requests
 
-# Note: We disable unsubscriptable-object because of bug bug: https://github.com/PyCQA/pylint/issues/3882 in pylint.
-# When that is fixed, we can remove the disables
-
 
 # Return types used for type checking
 class StopArrivalTimesDict(TypedDict):  # pylint:disable=too-few-public-methods,inherit-non-class
     """Used for type checking"""
     timesPerStop: int
-    routeIDs: Optional[str]  # pylint:disable=unsubscriptable-object
-    routeStopIDs: Optional[str]  # pylint:disable=unsubscriptable-object
-    ApiKey: Optional[str]  # pylint:disable=unsubscriptable-object
+    routeIDs: Optional[str]
+    routeStopIDs: Optional[str]
+    ApiKey: Optional[str]
 
 
 class VehicleRouteStopEstimates(TypedDict):  # pylint:disable=too-few-public-methods,inherit-non-class
     """Used for type checking"""
     quantity: str
-    vehicleIdStrings: Optional[str]  # pylint:disable=unsubscriptable-object
-    ApiKey: Optional[str]  # pylint:disable=unsubscriptable-object
+    vehicleIdStrings: Optional[str]
+    ApiKey: Optional[str]
 
 
 class RouteSchedules(TypedDict):  # pylint:disable=too-few-public-methods,inherit-non-class
     """Used for type checking"""
-    routeID: Optional[int]  # pylint:disable=unsubscriptable-object
-    ApiKey: Optional[str]  # pylint:disable=unsubscriptable-object
+    routeID: Optional[int]
+    ApiKey: Optional[str]
 
 
-RidershipDate = Union[date, datetime]  # pylint:disable=unsubscriptable-object
+RidershipDate = Union[date, datetime]
 
 
 class Ridership(TypedDict):  # pylint:disable=too-few-public-methods,inherit-non-class
     """Used for type checking"""
     StartDate: RidershipDate
     EndDate: RidershipDate
-    ApiKey: Optional[str]  # pylint:disable=unsubscriptable-object
+    ApiKey: Optional[str]
 
 
-ApiDataTypes = Union[VehicleRouteStopEstimates, StopArrivalTimesDict, RouteSchedules, Ridership]  # pylint:disable=unsubscriptable-object
+ApiDataTypes = Union[VehicleRouteStopEstimates, StopArrivalTimesDict, RouteSchedules, Ridership]
 QueryResult = Dict[str, Any]
 QueryResultList = List[QueryResult]
 

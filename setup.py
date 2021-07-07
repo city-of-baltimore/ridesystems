@@ -11,9 +11,10 @@ setup(
     python_requires='>=3.0',
     package_dir={'': 'src'},
     install_requires=[
-        'mechanize',
-        'requests',
-        'retry',
-        'bs4',
+        'mechanize~=0.4.5',
+        'requests~=2.25.1',
+        'tenacity~=7.0.0',
+        'beautifulsoup4~=4.9.3',
+        'pandas~=1.3.0',
     ]
 )

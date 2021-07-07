@@ -16,22 +16,19 @@ CREATE TABLE [ccc_arrival_times2] (
 [ontimestatus] varchar(20),
 [vehicle] varchar(50) );
 """
-import csv
 import logging
 import re
 from datetime import date
 from io import StringIO
-from typing import Any, Dict, List, Generator, Tuple, Union
+from typing import Any, Dict, List, Tuple, Union
 
 import mechanize  # type: ignore
+import pandas as pd  # type: ignore
 import requests
 from bs4 import BeautifulSoup  # type: ignore
 from tenacity import retry, wait_random_exponential, stop_after_attempt
 
 logger = logging.getLogger(__name__)
-
-# Note: We disable unsubscriptable-object because of bug bug: https://github.com/PyCQA/pylint/issues/3882 in pylint.
-# When that is fixed, we can remove the disables
 
 
 class Reports:
@@ -64,7 +61,7 @@ class Reports:
         assert soup.find('div', {'class': 'login-panel'}) is None, "Login failed"
 
     @retry(wait=wait_random_exponential(multiplier=1, max=60), stop=stop_after_attempt(7), reraise=True)
-    def _make_response_and_submit(self, ctrl_dict: Dict[str, Union[str, List]], html: str) -> str:  # pylint:disable=unsubscriptable-object
+    def _make_response_and_submit(self, ctrl_dict: Dict[str, Union[str, List]], html: str) -> str:
         """
         Helper to regenerate a response, assign it to the form, and resubmit it. Used for postbacks
         :param ctrl_dict: Dictionary of page control ids and the values they should be set to
@@ -81,13 +78,12 @@ class Reports:
         return self.browser.submit().read()
 
     @retry(wait=wait_random_exponential(multiplier=1, max=60), stop=stop_after_attempt(7), reraise=True)
-    def get_otp(self, start_date: date, end_date: date) -> Generator[Dict[str, Any], None, None]:  # pylint:disable=too-many-statements
+    def get_otp(self, start_date: date, end_date: date) -> pd.DataFrame:  # pylint:disable=too-many-statements
         """ Pulls the on time performance data
         :param start_date: The start date to search, inclusive. Searches starting from 12:00 AM
         :param end_date: The end date to search, inclusive. Searches ending at 11:59:59 PM
-        :return: Returns an interator with each row being a dictionary wth the keys 'date', 'route', 'stop',
-        'blockid', 'scheduledarrivaltime', 'actualarrivaltime', 'scheduleddeparturetime', 'actualdeparturetime',
-                   'ontimestatus', 'vehicle
+        :return: Returns a dataframe with the keys 'date', 'route', 'stop', 'blockid', 'scheduledarrivaltime',
+            'actualarrivaltime', 'scheduleddeparturetime', 'actualdeparturetime', 'ontimestatus', 'vehicle
 
         """
         logger.info("Getting OTP report for %s to %s", start_date, end_date)
@@ -100,7 +96,7 @@ class Reports:
         self.browser.select_form('aspnetForm')
         self.browser.form.set_all_readonly(False)
 
-        ctrl_dict: Dict[str, Union[str, List]] = {  # pylint:disable=unsubscriptable-object
+        ctrl_dict: Dict[str, Union[str, List]] = {
             # Start Date
             'ctl00$MainContent$ssrsReportViewer$ctl08$ctl03$txtValue': start_date.strftime('%#m/%#d/%Y'),
             # End Date
@@ -199,20 +195,22 @@ class Reports:
 
         assert csv_data, "Request failed with status code {}".format(csv_data.status_code)
 
-        csv_iter = csv.reader(StringIO(csv_data.text), delimiter=',')
         logging.debug("Got %s bytes of data", len(csv_data.text))
 
-        # Lets flush the header stuff; break on the first blank line
-        while csv_iter.__next__():
-            continue
-        csv_iter.__next__()  # flush the header
+        # Ridesystems puts three datasets in this single CSV, so we need to find the end of the first dataset
+        index = csv_data.text.find('\r\n\r\nDate,')
+        ret = pd.read_csv(StringIO(csv_data.text[:index]), delimiter=',', skiprows=[0, 1, 2, 3, 4, 5, 6], dtype=str,
+                          names=['date', 'route', 'stop', 'blockid', 'scheduledarrivaltime', 'actualarrivaltime',
+                                 'scheduleddeparturetime', 'actualdeparturetime', 'ontimestatus', 'vehicle'],
+                          parse_dates=['date'])
 
-        for row in csv_iter:
-            if not row:
-                break  # on the first blank row, break because we want to drop the footer stuff
-            yield {'date': row[0], 'route': row[1], 'stop': row[2], 'blockid': row[3], 'scheduledarrivaltime': row[4],
-                   'actualarrivaltime': row[5], 'scheduleddeparturetime': row[6], 'actualdeparturetime': row[7],
-                   'ontimestatus': row[8], 'vehicle': row[9]}
+        ret['scheduledarrivaltime'] = pd.to_datetime(ret['scheduledarrivaltime'], format='%I:%M:%S %p').dt.time
+        ret['actualarrivaltime'] = pd.to_datetime(ret['actualarrivaltime'], format='%I:%M:%S %p').dt.time
+        ret['scheduleddeparturetime'] = pd.to_datetime(ret['scheduleddeparturetime'], format='%I:%M:%S %p').dt.time
+        ret['actualdeparturetime'] = pd.to_datetime(ret['actualdeparturetime'], format='%I:%M:%S %p').dt.time
+        ret['vehicle'] = ret['vehicle'].astype(str)
+
+        return ret
 
     @staticmethod
     def parse_ltiv_data(data: str) -> Dict[str, Tuple[str, str]]:
