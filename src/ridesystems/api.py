@@ -15,7 +15,7 @@ You should have received a copy of the GNU General Public License along
 with this program; if not, write to the Free Software Foundation, Inc.,
 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 """
-from typing import Dict, Any, Optional, TypedDict, Union, List
+from typing import Dict, Any, Optional, TypedDict, Union, List, cast
 from datetime import datetime, date
 
 from tenacity import retry, wait_random_exponential, stop_after_attempt
@@ -181,7 +181,7 @@ class API:
         if vehicle_id:
             payload["vehicleIdStrings"] = ",".join(str(i) for i in vehicle_id)
         response = self.session.get("{}/Services/JSONPRelay.svc/GetVehicleRouteStopEstimates".format(self.base_url),
-                                    params=payload)
+                                    params=cast(Dict, payload))
         return response.json()
 
     @retry(wait=wait_random_exponential(multiplier=1, max=60), stop=stop_after_attempt(7), reraise=True)
@@ -223,7 +223,7 @@ class API:
             payload["routeStopIDs"] = ", ".join(map(str, stop_ids))
 
         response = self.session.get("{}/Services/JSONPRelay.svc/GetStopArrivalTimes".format(self.base_url),
-                                    params=payload)
+                                    params=cast(Dict, payload))
         return response.json()
 
     @retry(wait=wait_random_exponential(multiplier=1, max=60), stop=stop_after_attempt(7), reraise=True)
@@ -252,7 +252,7 @@ class API:
                                          "routeStopIDs": None,
                                          "ApiKey": self.api_key}
         response = self.session.get("{}/Services/JSONPRelay.svc/GetRouteStopArrivals".format(self.base_url),
-                                    params=payload)
+                                    params=cast(Dict, payload))
         return response.json()
 
     @retry(wait=wait_random_exponential(multiplier=1, max=60), stop=stop_after_attempt(7), reraise=True)
@@ -279,7 +279,7 @@ class API:
         """
         payload: RouteSchedules = {"routeID": route_id, "ApiKey": self.api_key}
         response = self.session.get("{}/Services/JSONPRelay.svc/GetRouteSchedules".format(self.base_url),
-                                    params=payload)
+                                    params=cast(Dict, payload))
         return response.json()
 
     @retry(wait=wait_random_exponential(multiplier=1, max=60), stop=stop_after_attempt(7), reraise=True)
@@ -300,7 +300,7 @@ class API:
         """
         payload: RouteSchedules = {"routeID": route_id, "ApiKey": self.api_key}
         response = self.session.get("{}/Services/JSONPRelay.svc/GetRouteScheduleTimes".format(self.base_url),
-                                    params=payload)
+                                    params=cast(Dict, payload))
         return response.json()
 
     @retry(wait=wait_random_exponential(multiplier=1, max=60), stop=stop_after_attempt(7), reraise=True)
@@ -324,7 +324,8 @@ class API:
             UseScheduleTripsInPassengerCounter– Not used
         """
         payload: RouteSchedules = {"routeID": route_id, "ApiKey": self.api_key}
-        response = self.session.get("{}/Services/JSONPRelay.svc/GetRoutes".format(self.base_url), params=payload)
+        response = self.session.get("{}/Services/JSONPRelay.svc/GetRoutes".format(self.base_url),
+                                    params=cast(Dict, payload))
         return response.json()
 
     @retry(wait=wait_random_exponential(multiplier=1, max=60), stop=stop_after_attempt(7), reraise=True)
@@ -351,7 +352,8 @@ class API:
             Heading- Not used
         """
         payload: RouteSchedules = {"routeID": route_id, "ApiKey": self.api_key}
-        response = self.session.get("{}/Services/JSONPRelay.svc/GetStops".format(self.base_url), params=payload)
+        response = self.session.get("{}/Services/JSONPRelay.svc/GetStops".format(self.base_url),
+                                    params=cast(Dict, payload))
         return response.json()
 
     @retry(wait=wait_random_exponential(multiplier=1, max=60), stop=stop_after_attempt(7), reraise=True)
@@ -370,7 +372,7 @@ class API:
         """
         payload: RouteSchedules = {"routeID": route_id, "ApiKey": self.api_key}
         response = self.session.get("{}/Services/JSONPRelay.svc/GetMarkers".format(self.base_url),
-                                    params=payload)
+                                    params=cast(Dict, payload))
         return response.json()
 
     @retry(wait=wait_random_exponential(multiplier=1, max=60), stop=stop_after_attempt(7), reraise=True)
@@ -420,5 +422,5 @@ class API:
         """
         payload: Ridership = {"StartDate": start_date, "EndDate": end_date, "ApiKey": self.api_key}
         response = self.session.get("{}/Services/JSONPRelay.svc/GetRidershipData".format(self.base_url),
-                                    params=payload)
+                                    params=cast(Dict, payload))
         return response.json()
