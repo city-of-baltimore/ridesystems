@@ -13,7 +13,7 @@ setup(
     install_requires=[
         'mechanize~=0.4.5',
         'requests~=2.25.1',
-        'tenacity~=7.0.0',
+        'tenacity~=8.0.1',
         'beautifulsoup4~=4.9.3',
         'pandas~=1.3.0',
     ]
