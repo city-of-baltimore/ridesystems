@@ -1,20 +1,21 @@
-from setuptools import setup, find_packages
+"""
+    Setup file for ridesystems.
+    Use setup.cfg to configure your project.
 
-setup(
-    name="ridesystems",
-    version="0.3",
-    author="Brian Seel",
-    author_email="brian.seel@baltimorecity.gov",
-    description="Interface with the Ridesystems website",
-    packages=find_packages('src'),
-    package_data={'ridesystems': ['py.typed'], },
-    python_requires='>=3.0',
-    package_dir={'': 'src'},
-    install_requires=[
-        'mechanize~=0.4.5',
-        'requests~=2.25.1',
-        'tenacity~=8.0.1',
-        'beautifulsoup4~=4.9.3',
-        'pandas~=1.3.0',
-    ]
-)
+    This file was generated with PyScaffold 4.0.2.
+    PyScaffold helps you to put up the scaffold of your new Python project.
+    Learn more under: https://pyscaffold.org/
+"""
+from setuptools import setup
+
+if __name__ == "__main__":
+    try:
+        setup(use_scm_version={"version_scheme": "no-guess-dev"})
+    except:  # noqa
+        print(
+            "\n\nAn error occurred while building the project, "
+            "please ensure you have the most updated version of setuptools, "
+            "setuptools_scm and wheel with:\n"
+            "   pip install -U setuptools setuptools_scm wheel\n\n"
+        )
+        raise
