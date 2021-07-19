@@ -78,7 +78,8 @@ class Reports:
         return self.browser.submit().read()
 
     @retry(wait=wait_random_exponential(multiplier=1, max=60), stop=stop_after_attempt(7), reraise=True)
-    def get_otp(self, start_date: date, end_date: date) -> pd.DataFrame:  # pylint:disable=too-many-statements
+    def get_otp(self, start_date: date,  # pylint:disable=too-many-statements, too-many-locals
+                end_date: date) -> pd.DataFrame:
         """ Pulls the on time performance data
         :param start_date: The start date to search, inclusive. Searches starting from 12:00 AM
         :param end_date: The end date to search, inclusive. Searches ending at 11:59:59 PM
@@ -136,79 +137,93 @@ class Reports:
         routes = [x.text.replace('\xa0', ' ') for x in soup.find_all('label', {
             'for': re.compile(r'ctl00_MainContent_ssrsReportViewer_ctl08_ctl07_divDropDown_ctl(0[2-9]|[1-9][0-9]*)')})]
 
-        ctrl_dict['ctl00$MainContent$ssrsReportViewer$ctl08$ctl07$divDropDown$ctl01$HiddenIndices'] = \
-            ','.join([str(x) for x in range(len(routes))])
-        ctrl_dict['ctl00$MainContent$ssrsReportViewer$ctl08$ctl07$txtValue'] = ','.join(routes)
-        ctrl_dict['__EVENTTARGET'] = 'ctl00$MainContent$ssrsReportViewer$ctl08$ctl07'
-        ctrl_dict['ctl00$MainContent$scriptManager'] = \
-            'ctl00$MainContent$scriptManager|ctl00$MainContent$ssrsReportViewer$ctl08$ctl07'
+        ret = pd.DataFrame()
+        for route in routes:
 
-        resp = self._make_response_and_submit(ctrl_dict, html)
+            ctrl_dict['ctl00$MainContent$ssrsReportViewer$ctl08$ctl07$divDropDown$ctl01$HiddenIndices'] = \
+                ','.join([str(x) for x in range(len(routes))])
+            ctrl_dict['ctl00$MainContent$ssrsReportViewer$ctl08$ctl07$txtValue'] = route
+            ctrl_dict['__EVENTTARGET'] = 'ctl00$MainContent$ssrsReportViewer$ctl08$ctl07'
+            ctrl_dict['ctl00$MainContent$scriptManager'] = \
+                'ctl00$MainContent$scriptManager|ctl00$MainContent$ssrsReportViewer$ctl08$ctl07'
 
-        # turn the values in the page into a dictionary
-        resp_dict = self.parse_ltiv_data(resp.decode())
+            resp = self._make_response_and_submit(ctrl_dict, html)
 
-        soup = BeautifulSoup(resp, features='html.parser')
+            # turn the values in the page into a dictionary
+            resp_dict = self.parse_ltiv_data(resp.decode())
 
-        stops = [x.text.replace('\xa0', ' ') for x in soup.find_all('label', {
-            'for': re.compile(r'ctl00_MainContent_ssrsReportViewer_ctl08_ctl09_divDropDown_ctl(0[2-9]|[1-9][0-9]*)')})]
+            soup = BeautifulSoup(resp, features='html.parser')
 
-        # Setup the required values
-        ctrl_dict['ctl00$MainContent$ssrsReportViewer$ctl08$ctl09$txtValue'] = ','.join(stops)
-        ctrl_dict['ctl00$MainContent$ssrsReportViewer$ctl08$ctl09$divDropDown$ctl01$HiddenIndices'] = \
-            ','.join([str(x) for x in range(len(stops))])
-        ctrl_dict['__VIEWSTATE'] = resp_dict['__VIEWSTATE'][0]
-        ctrl_dict['__EVENTVALIDATION'] = resp_dict['__EVENTVALIDATION'][0]
-        ctrl_dict['__EVENTTARGET'] = ''
-        ctrl_dict['ctl00$MainContent$ssrsReportViewer$ctl08$ctl00'] = 'View Report'
-        ctrl_dict['ctl00$MainContent$ssrsReportViewer$ctl14'] = 'ltr'
-        ctrl_dict['ctl00$MainContent$scriptManager'] = \
-            'ctl00$MainContent$scriptManager|ctl00$MainContent$ssrsReportViewer$ctl08$ctl00'
+            stops = [x.text.replace('\xa0', ' ') for x in soup.find_all('label', {
+                'for':
+                    re.compile(r'ctl00_MainContent_ssrsReportViewer_ctl08_ctl09_divDropDown_ctl(0[2-9]|[1-9][0-9]*)')})]
 
-        resp = self._make_response_and_submit(ctrl_dict, html)
-        response_url_base_group = re.search(r'"ExportUrlBase":"(.*?)"', resp.decode())
-        assert response_url_base_group is not None
-        response_url_base = response_url_base_group.group(1)
+            # Setup the required values
+            ctrl_dict['ctl00$MainContent$ssrsReportViewer$ctl08$ctl09$txtValue'] = ','.join(stops)
+            ctrl_dict['ctl00$MainContent$ssrsReportViewer$ctl08$ctl09$divDropDown$ctl01$HiddenIndices'] = \
+                ','.join([str(x) for x in range(len(stops))])
+            ctrl_dict['__VIEWSTATE'] = resp_dict['__VIEWSTATE'][0]
+            ctrl_dict['__EVENTVALIDATION'] = resp_dict['__EVENTVALIDATION'][0]
+            ctrl_dict['__EVENTTARGET'] = ''
+            ctrl_dict['ctl00$MainContent$ssrsReportViewer$ctl08$ctl00'] = 'View Report'
+            ctrl_dict['ctl00$MainContent$ssrsReportViewer$ctl14'] = 'ltr'
+            ctrl_dict['ctl00$MainContent$scriptManager'] = \
+                'ctl00$MainContent$scriptManager|ctl00$MainContent$ssrsReportViewer$ctl08$ctl00'
 
-        resp_dict = self.parse_ltiv_data(resp.decode())
+            resp = self._make_response_and_submit(ctrl_dict, html)
+            response_url_base_group = re.search(r'"ExportUrlBase":"(.*?)"', resp.decode())
+            assert response_url_base_group is not None
+            response_url_base = response_url_base_group.group(1)
 
-        # Setup the required values
-        ctrl_dict['null'] = '100'
-        ctrl_dict['ctl00$MainContent$ssrsReportViewer$ctl09$ctl03$ctl00'] = ''
-        ctrl_dict['__EVENTTARGET'] = 'ctl00$MainContent$ssrsReportViewer$ctl13$Reserved_AsyncLoadTarget'
-        ctrl_dict['__VIEWSTATE'] = resp_dict['__VIEWSTATE'][0]
-        ctrl_dict['__EVENTVALIDATION'] = resp_dict['__EVENTVALIDATION'][0]
-        ctrl_dict['__EVENTTARGET'] = 'ctl00$MainContent$ssrsReportViewer$ctl13$Reserved_AsyncLoadTarget'
-        ctrl_dict['ctl00$MainContent$scriptManager'] = \
-            'ctl00$MainContent$scriptManager|ctl00$MainContent$ssrsReportViewer$ctl13$Reserved_AsyncLoadTarget'
-        ctrl_dict['ctl00$MainContent$ssrsReportViewer$ctl09$ctl00$CurrentPage'] = ''
+            resp_dict = self.parse_ltiv_data(resp.decode())
 
-        self._make_response_and_submit(ctrl_dict, html)
-        csv_data = requests.get("{}{}CSV".format(self.baseurl, response_url_base.replace(r'\u0026', '&')),
-                                cookies=self.browser.cookiejar,
-                                headers={
-                                    'referer': '{}/Secure/Admin/Reports/ReportViewer.aspx?Path=%2fOldRidesystems%2f'
-                                               'Ridership%2fAll+Ridership+By+Vehicle'.format(self.baseurl),
-                                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 '
-                                                  '(KHTML, like Gecko) Chrome/86.0.4240.111 Safari/537.36'},
-                                )
+            # Setup the required values
+            ctrl_dict['null'] = '100'
+            ctrl_dict['ctl00$MainContent$ssrsReportViewer$ctl09$ctl03$ctl00'] = ''
+            ctrl_dict['__EVENTTARGET'] = 'ctl00$MainContent$ssrsReportViewer$ctl13$Reserved_AsyncLoadTarget'
+            ctrl_dict['__VIEWSTATE'] = resp_dict['__VIEWSTATE'][0]
+            ctrl_dict['__EVENTVALIDATION'] = resp_dict['__EVENTVALIDATION'][0]
+            ctrl_dict['__EVENTTARGET'] = 'ctl00$MainContent$ssrsReportViewer$ctl13$Reserved_AsyncLoadTarget'
+            ctrl_dict['ctl00$MainContent$scriptManager'] = \
+                'ctl00$MainContent$scriptManager|ctl00$MainContent$ssrsReportViewer$ctl13$Reserved_AsyncLoadTarget'
+            ctrl_dict['ctl00$MainContent$ssrsReportViewer$ctl09$ctl00$CurrentPage'] = ''
 
-        assert csv_data, "Request failed with status code {}".format(csv_data.status_code)
+            self._make_response_and_submit(ctrl_dict, html)
+            csv_data = requests.get("{}{}CSV".format(self.baseurl, response_url_base.replace(r'\u0026', '&')),
+                                    cookies=self.browser.cookiejar,
+                                    headers={
+                                        'referer': '{}/Secure/Admin/Reports/ReportViewer.aspx?Path=%2fOldRidesystems%2f'
+                                                   'Ridership%2fAll+Ridership+By+Vehicle'.format(self.baseurl),
+                                        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 '
+                                                      '(KHTML, like Gecko) Chrome/86.0.4240.111 Safari/537.36'},
+                                    )
 
-        logging.debug("Got %s bytes of data", len(csv_data.text))
+            assert csv_data, "Request failed with status code {}".format(csv_data.status_code)
 
-        # Ridesystems puts three datasets in this single CSV, so we need to find the end of the first dataset
-        index = csv_data.text.find('\r\n\r\nDate,')
-        ret = pd.read_csv(StringIO(csv_data.text[:index]), delimiter=',', skiprows=[0, 1, 2, 3, 4, 5, 6], dtype=str,
-                          names=['date', 'route', 'stop', 'blockid', 'scheduledarrivaltime', 'actualarrivaltime',
-                                 'scheduleddeparturetime', 'actualdeparturetime', 'ontimestatus', 'vehicle'],
-                          parse_dates=['date'])
+            logging.debug("Got %s bytes of data", len(csv_data.text))
 
-        ret['scheduledarrivaltime'] = pd.to_datetime(ret['scheduledarrivaltime'], format='%I:%M:%S %p').dt.time
-        ret['actualarrivaltime'] = pd.to_datetime(ret['actualarrivaltime'], format='%I:%M:%S %p').dt.time
-        ret['scheduleddeparturetime'] = pd.to_datetime(ret['scheduleddeparturetime'], format='%I:%M:%S %p').dt.time
-        ret['actualdeparturetime'] = pd.to_datetime(ret['actualdeparturetime'], format='%I:%M:%S %p').dt.time
-        ret['vehicle'] = ret['vehicle'].astype(str)
+            # Ridesystems puts three datasets in this single CSV, so we need to find the end of the first dataset
+            index = csv_data.text.find('\r\n\r\nDate,')
+            ret_tmp = pd.read_csv(StringIO(csv_data.text[:index]), delimiter=',', skiprows=[0, 1, 2, 3, 4, 5, 6],
+                                  names=['date', 'route', 'stop', 'blockid', 'scheduledarrivaltime',
+                                         'actualarrivaltime',
+                                         'scheduleddeparturetime', 'actualdeparturetime', 'ontimestatus', 'vehicle'],
+                                  parse_dates=['date'], dtype=str, )
+
+            ret_tmp['scheduledarrivaltime'] = pd.to_datetime(ret_tmp['scheduledarrivaltime'],
+                                                             format='%I:%M:%S %p').dt.time
+            ret_tmp['actualarrivaltime'] = pd.to_datetime(ret_tmp['actualarrivaltime'],
+                                                          format='%I:%M:%S %p').dt.time
+            ret_tmp['scheduleddeparturetime'] = pd.to_datetime(ret_tmp['scheduleddeparturetime'],
+                                                               format='%I:%M:%S %p').dt.time
+            ret_tmp['actualdeparturetime'] = pd.to_datetime(ret_tmp['actualdeparturetime'],
+                                                            format='%I:%M:%S %p').dt.time
+            ret_tmp['vehicle'] = ret_tmp['vehicle'].astype(str)
+
+            if ret.empty:
+                ret = ret_tmp
+            else:
+                pd.concat([ret, ret_tmp])
 
         return ret
 

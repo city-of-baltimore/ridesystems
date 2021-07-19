@@ -1,5 +1,5 @@
 mechanize~=0.4.5
-requests~=2.25.1
+requests~=2.26.0
 bs4~=0.0.1
 beautifulsoup4~=4.9.3
 tenacity~=8.0.1
