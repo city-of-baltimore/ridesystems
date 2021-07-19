@@ -1,4 +1,4 @@
-"""Ridesystems modeule"""
+"""ridesystems module"""
 from importlib.metadata import PackageNotFoundError, version  # pragma: no cover
 
 
