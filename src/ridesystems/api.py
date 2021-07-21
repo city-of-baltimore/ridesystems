@@ -15,6 +15,7 @@ You should have received a copy of the GNU General Public License along
 with this program; if not, write to the Free Software Foundation, Inc.,
 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 """
+# pylint:disable=too-few-public-methods,inherit-non-class
 from typing import Dict, Any, Optional, TypedDict, Union, List, cast
 from datetime import datetime, date
 
@@ -23,7 +24,7 @@ import requests
 
 
 # Return types used for type checking
-class StopArrivalTimesDict(TypedDict):  # pylint:disable=too-few-public-methods,inherit-non-class
+class StopArrivalTimesDict(TypedDict):
     """Used for type checking"""
     timesPerStop: int
     routeIDs: Optional[str]
@@ -31,14 +32,14 @@ class StopArrivalTimesDict(TypedDict):  # pylint:disable=too-few-public-methods,
     ApiKey: Optional[str]
 
 
-class VehicleRouteStopEstimates(TypedDict):  # pylint:disable=too-few-public-methods,inherit-non-class
+class VehicleRouteStopEstimates(TypedDict):
     """Used for type checking"""
     quantity: str
     vehicleIdStrings: Optional[str]
     ApiKey: Optional[str]
 
 
-class RouteSchedules(TypedDict):  # pylint:disable=too-few-public-methods,inherit-non-class
+class RouteSchedules(TypedDict):
     """Used for type checking"""
     routeID: Optional[int]
     ApiKey: Optional[str]
@@ -47,7 +48,7 @@ class RouteSchedules(TypedDict):  # pylint:disable=too-few-public-methods,inheri
 RidershipDate = Union[date, datetime]
 
 
-class Ridership(TypedDict):  # pylint:disable=too-few-public-methods,inherit-non-class
+class Ridership(TypedDict):
     """Used for type checking"""
     StartDate: RidershipDate
     EndDate: RidershipDate
