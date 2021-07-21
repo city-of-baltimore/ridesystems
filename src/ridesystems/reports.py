@@ -30,15 +30,16 @@ from tenacity import retry, wait_random_exponential, stop_after_attempt
 
 logger = logging.getLogger(__name__)
 
+HEADERS = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 ' \
+          '(KHTML, like Gecko) Chrome/86.0.4240.183 Safari/537.36'
+
 
 class Reports:
     """Setup for Ridesystems session"""
 
     def __init__(self, username: str, password: str, baseurl: str = "https://cityofbaltimore.ridesystems.net"):
         self.browser = mechanize.Browser()
-        self.browser.addheaders = [('User-agent',
-                                    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 '
-                                    '(KHTML, like Gecko) Chrome/86.0.4240.183 Safari/537.36')]
+        self.browser.addheaders = [('User-agent', HEADERS)]
 
         self.baseurl = baseurl
         self._login(username, password)
@@ -61,7 +62,7 @@ class Reports:
         assert soup.find('div', {'class': 'login-panel'}) is None, "Login failed"
 
     @retry(wait=wait_random_exponential(multiplier=1, max=60), stop=stop_after_attempt(7), reraise=True)
-    def _make_response_and_submit(self, ctrl_dict: Dict[str, Union[str, List]], html: str) -> str:
+    def _make_response_and_submit(self, ctrl_dict: Dict[str, Union[str, List]], html: str) -> bytes:
         """
         Helper to regenerate a response, assign it to the form, and resubmit it. Used for postbacks
         :param ctrl_dict: Dictionary of page control ids and the values they should be set to
@@ -74,18 +75,17 @@ class Reports:
         self.browser.form.set_all_readonly(False)
 
         self._set_controls(ctrl_dict)
-
         return self.browser.submit().read()
 
     @retry(wait=wait_random_exponential(multiplier=1, max=60), stop=stop_after_attempt(7), reraise=True)
-    def get_otp(self, start_date: date,  # pylint:disable=too-many-statements, too-many-locals
-                end_date: date) -> pd.DataFrame:
+    def get_otp(self, start_date: date, end_date: date,  # pylint:disable=too-many-locals,too-many-statements
+                hours: str = ','.join([str(x) for x in range(24)])) -> pd.DataFrame:
         """ Pulls the on time performance data
         :param start_date: The start date to search, inclusive. Searches starting from 12:00 AM
         :param end_date: The end date to search, inclusive. Searches ending at 11:59:59 PM
+        :param hours: A comma separated list of the hours of the day to search using military time IE '11, 12, 13'
         :return: Returns a dataframe with the keys 'date', 'route', 'stop', 'blockid', 'scheduledarrivaltime',
             'actualarrivaltime', 'scheduleddeparturetime', 'actualdeparturetime', 'ontimestatus', 'vehicle
-
         """
         logger.info("Getting OTP report for %s to %s", start_date, end_date)
         # Pull the page the first time to get the form that we will need to resubmit a few times
@@ -115,8 +115,7 @@ class Reports:
             'ctl00$MainContent$ssrsReportViewer$ctl08$ctl19$divDropDown$ctl01$HiddenIndices': '0,1,2,3',
             # Hours
             'ctl00$MainContent$ssrsReportViewer$ctl08$ctl21$txtValue': ','.join([str(x) for x in range(24)]),
-            'ctl00$MainContent$ssrsReportViewer$ctl08$ctl21$divDropDown$ctl01$HiddenIndices':
-                ','.join([str(x) for x in range(24)]),
+            'ctl00$MainContent$ssrsReportViewer$ctl08$ctl21$divDropDown$ctl01$HiddenIndices': hours,
             # Group Data
             'ctl00$MainContent$ssrsReportViewer$ctl08$ctl23$ddValue': ['1'],
 
@@ -171,10 +170,6 @@ class Reports:
                 'ctl00$MainContent$scriptManager|ctl00$MainContent$ssrsReportViewer$ctl08$ctl00'
 
             resp = self._make_response_and_submit(ctrl_dict, html)
-            response_url_base_group = re.search(r'"ExportUrlBase":"(.*?)"', resp.decode())
-            assert response_url_base_group is not None
-            response_url_base = response_url_base_group.group(1)
-
             resp_dict = self.parse_ltiv_data(resp.decode())
 
             # Setup the required values
@@ -189,18 +184,7 @@ class Reports:
             ctrl_dict['ctl00$MainContent$ssrsReportViewer$ctl09$ctl00$CurrentPage'] = ''
 
             self._make_response_and_submit(ctrl_dict, html)
-            csv_data = requests.get("{}{}CSV".format(self.baseurl, response_url_base.replace(r'\u0026', '&')),
-                                    cookies=self.browser.cookiejar,
-                                    headers={
-                                        'referer': '{}/Secure/Admin/Reports/ReportViewer.aspx?Path=%2fOldRidesystems%2f'
-                                                   'Ridership%2fAll+Ridership+By+Vehicle'.format(self.baseurl),
-                                        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 '
-                                                      '(KHTML, like Gecko) Chrome/86.0.4240.111 Safari/537.36'},
-                                    )
-
-            assert csv_data, "Request failed with status code {}".format(csv_data.status_code)
-
-            logging.debug("Got %s bytes of data", len(csv_data.text))
+            csv_data = self._download_csv(resp)
 
             # Ridesystems puts three datasets in this single CSV, so we need to find the end of the first dataset
             index = csv_data.text.find('\r\n\r\nDate,')
@@ -219,6 +203,7 @@ class Reports:
             ret_tmp['actualdeparturetime'] = pd.to_datetime(ret_tmp['actualdeparturetime'],
                                                             format='%I:%M:%S %p').dt.time
             ret_tmp['vehicle'] = ret_tmp['vehicle'].astype(str)
+            ret_tmp['route'] = ret_tmp['route'].replace(' Route', '')
 
             if ret.empty:
                 ret = ret_tmp
@@ -226,6 +211,56 @@ class Reports:
                 pd.concat([ret, ret_tmp])
 
         return ret
+
+    def get_runtimes(self, start_date: date, end_date: date) -> pd.DataFrame:
+        """ Pulls the on time performance data
+        :param start_date: The start date to search, inclusive. Searches starting from 12:00 AM
+        :param end_date: The end date to search, inclusive. Searches ending at 11:59:59 PM
+        :return: Returns a dataframe with 'route', 'vehicle', 'start_time', and 'end_time'
+        """
+        logger.info("Getting runtime report for %s to %s", start_date, end_date)
+        # Pull the page the first time to get the form that we will need to resubmit a few times
+        resp = self.browser.open('{}/Secure/Admin/Reports/ReportViewer.aspx?Path=%2fOldRidesystems%2fGeneral+Reports%2f'
+                                 'Vehicle_Assignment_Report_Ver2'.format(self.baseurl)).read()
+        soup = BeautifulSoup(resp, features="html.parser")
+        html = soup.find('form', id='aspnetForm').prettify().encode('utf8')
+
+        self.browser.select_form('aspnetForm')
+        self.browser.form.set_all_readonly(False)
+
+        ctrl_dict: Dict[str, Union[str, List]] = {
+            'ctl00$MainContent$scriptManager':
+                'ctl00$MainContent$scriptManager|ctl00$MainContent$ssrsReportViewer$ctl08$ctl00',
+            '__VIEWSTATE': soup.find('input', {'name': '__VIEWSTATE'})['value'],
+            '__VIEWSTATEGENERATOR': soup.find('input', {'name': '__VIEWSTATEGENERATOR'})['value'],
+            '__EVENTVALIDATION': soup.find('input', {'name': '__EVENTVALIDATION'})['value'],
+            'ctl00$MainContent$ssrsReportViewer$ctl15': 'standards',
+            'ctl00$MainContent$ssrsReportViewer$AsyncWait$HiddenCancelField': 'False',
+            # Start Date
+            'ctl00$MainContent$ssrsReportViewer$ctl08$ctl03$txtValue': start_date.strftime('%#m/%#d/%Y'),
+            # End Date
+            'ctl00$MainContent$ssrsReportViewer$ctl08$ctl05$txtValue': end_date.strftime('%#m/%#d/%Y 11:59:59 PM'),
+            # Group By
+            'ctl00$MainContent$ssrsReportViewer$ctl08$ctl07$ddValue': ['1'],
+            # Routes
+            'ctl00$MainContent$ssrsReportViewer$ctl08$ctl09$txtValue':
+                ",".join([i.text.replace('\xa0', ' ') for i in soup.find_all('label', {
+                    'for': re.compile(r'ctl00_MainContent_ssrsReportViewer_ctl08_ctl09_divDropDown_ctl..')}) if
+                          i.text.replace('\xa0', ' ') != '(Select All)']),
+            'ctl00$MainContent$ssrsReportViewer$ctl08$ctl09$divDropDown$ctl01$HiddenIndices': '0,1,2,3,4',
+            'ctl00$MainContent$ssrsReportViewer$ToggleParam$collapse': 'false',
+            'ctl00$MainContent$ssrsReportViewer$ctl11$collapse': 'false',
+            'ctl00$MainContent$ssrsReportViewer$ctl13$VisibilityState$ctl00': 'None',
+            'ctl00$MainContent$ssrsReportViewer$ctl13$ReportControl$ctl04': '100',
+            '__ASYNCPOST': 'true',
+            'ctl00$MainContent$ssrsReportViewer$ctl08$ctl00': 'View Report'
+        }
+
+        resp = self._make_response_and_submit(ctrl_dict, html)
+        csv_data = self._download_csv(resp)
+
+        return pd.read_csv(StringIO(csv_data.text), skiprows=[0, 1, 2, 3], usecols=[1, 5, 6, 7],
+                           names=['route', 'vehicle', 'start_time', 'end_time'], parse_dates=['start_time', 'end_time'])
 
     @staticmethod
     def parse_ltiv_data(data: str) -> Dict[str, Tuple[str, str]]:
@@ -256,6 +291,28 @@ class Reports:
 
             ret[data_id] = (value, data_type)
         return ret
+
+    def _download_csv(self, resp: bytes) -> requests.Response:
+        """
+        Gets the URL to the CSV file with the results of a search
+        :param resp: The contents of a webpage that will contain the download url
+        """
+        response_url_base_group = re.search(b'"ExportUrlBase":"(.*?)"', resp)
+        assert response_url_base_group is not None
+        response_url_base = response_url_base_group.group(1).decode('utf-8').replace('\\u0026', '&')
+
+        csv_data = requests.get("{}{}CSV".format(self.baseurl, response_url_base),
+                                cookies=self.browser.cookiejar,
+                                headers={
+                                    'referer': '{}/Secure/Admin/Reports/ReportViewer.aspx?Path=%2fOldRidesystems%2f'
+                                               'Ridership%2fAll+Ridership+By+Vehicle'.format(self.baseurl),
+                                    'User-Agent': HEADERS},
+                                )
+
+        assert csv_data, "Request failed with status code {}".format(csv_data.status_code)
+        logging.debug("Got %s bytes of data", len(csv_data.text))
+
+        return csv_data
 
     def _set_controls(self, ctrl_dict: Dict[str, Any]) -> None:
         for ctrl_id, val in ctrl_dict.items():

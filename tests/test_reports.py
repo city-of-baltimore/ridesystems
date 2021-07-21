@@ -1,20 +1,15 @@
 """
 Tests reports.py
 
-Should be called as test_reports.py --username <username> --password <password>
+Should be called as tox -- --username <username> --password <password>
 """
 
-import logging
 from datetime import datetime, time, timedelta
 
 import pandas as pd
 import pytest  # type: ignore
 
-from ridesystems.reports import Reports  # pylint:disable=wrong-import-position,wrong-import-order  # noqa: E402
-
-logging.basicConfig(format='%(asctime)s %(levelname)-8s %(message)s',
-                    level=logging.DEBUG,
-                    datefmt='%Y-%m-%d %H:%M:%S')
+from ridesystems.reports import Reports
 
 
 def test_login_failure():
@@ -23,7 +18,7 @@ def test_login_failure():
         Reports('invalidusername', 'invalidpassword')
 
 
-def test_get_otp(reports_fixture):
+def test_get_otp_all(reports_fixture):
     """
     Validate that we get valid data when we pull the on time performance data
 
@@ -34,7 +29,7 @@ def test_get_otp(reports_fixture):
     start_date = datetime.today() - timedelta(days=1)
     end_date = datetime.today() - timedelta(days=1)
 
-    otp_data = reports_fixture.get_otp(start_date, end_date)
+    otp_data = reports_fixture.get_otp(start_date, end_date, '11, 12')
 
     iters = 0
     routes = set()
@@ -62,7 +57,7 @@ def test_get_otp(reports_fixture):
         vehicles.add(row['vehicle'])
         iters += 1
 
-    assert iters > 4000
+    assert iters > 700
     assert len(routes) >= 4
     assert len(stops) >= 50
     assert len(blockid) >= 4
@@ -82,7 +77,7 @@ def test_get_otp_apr_6(reports_fixture):
     start_date = datetime(2020, 4, 6)
     end_date = datetime(2020, 4, 6)
 
-    otp_data = reports_fixture.get_otp(start_date, end_date)
+    otp_data = reports_fixture.get_otp(start_date, end_date, '11, 12')
 
     iters = 0
     for _, row in otp_data.iterrows():
@@ -95,6 +90,25 @@ def test_get_otp_apr_6(reports_fixture):
         assert isinstance(row['scheduleddeparturetime'], time) or row['scheduleddeparturetime'] is pd.NaT
         assert isinstance(row['actualdeparturetime'], time) or row['actualdeparturetime'] is pd.NaT
         assert isinstance(row['ontimestatus'], str)
+        assert isinstance(row['vehicle'], str)
+        iters += 1
+
+    assert iters > 50
+
+
+def test_get_runtimes(reports_fixture):
+    """Test get_runtimes"""
+    start_date = datetime.today() - timedelta(days=1)
+    end_date = datetime.today() - timedelta(days=1)
+
+    runtime_data = reports_fixture.get_runtimes(start_date, end_date)
+
+    iters = 0
+    for _, row in runtime_data.iterrows():
+        print(row)
+        assert isinstance(row['start_time'], datetime)
+        assert isinstance(row['end_time'], datetime)
+        assert isinstance(row['route'], str)
         assert isinstance(row['vehicle'], str)
         iters += 1
 
