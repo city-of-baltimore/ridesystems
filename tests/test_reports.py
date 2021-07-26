@@ -41,6 +41,7 @@ def test_get_otp_all(reports_fixture):
     for _, row in otp_data.iterrows():
         assert isinstance(row['date'], datetime)
         assert isinstance(row['route'], str)
+        assert row['route'] in ['Green', 'Banner', 'Purple', 'Orange']
         assert isinstance(row['stop'], str)
         assert isinstance(row['blockid'], str)
         assert isinstance(row['scheduledarrivaltime'], time) or row['scheduledarrivaltime'] is pd.NaT
@@ -83,6 +84,7 @@ def test_get_otp_apr_6(reports_fixture):
     for _, row in otp_data.iterrows():
         assert isinstance(row['date'], datetime)
         assert isinstance(row['route'], str)
+        assert row['route'] in ['Green', 'Banner', 'Purple', 'Orange']
         assert isinstance(row['stop'], str)
         assert isinstance(row['blockid'], str)
         assert isinstance(row['scheduledarrivaltime'], time) or row['scheduledarrivaltime'] is pd.NaT
@@ -105,14 +107,37 @@ def test_get_runtimes(reports_fixture):
 
     iters = 0
     for _, row in runtime_data.iterrows():
-        print(row)
         assert isinstance(row['start_time'], datetime)
         assert isinstance(row['end_time'], datetime)
         assert isinstance(row['route'], str)
+        assert row['route'] in ['Green', 'Banner', 'Purple', 'Orange']
         assert isinstance(row['vehicle'], str)
         iters += 1
 
     assert iters > 50
+
+
+def test_get_ridership(reports_fixture):
+    """Test get_ridership"""
+    start_date = datetime.today() - timedelta(days=1)
+    end_date = datetime.today() - timedelta(days=1)
+
+    ridership_data = reports_fixture.get_ridership(start_date, end_date)
+
+    iters = 0
+    for _, row in ridership_data.iterrows():
+        assert isinstance(row['vehicle'], str)
+        assert isinstance(row['route'], str)
+        assert row['route'] in ['Green', 'Banner', 'Purple', 'Orange']
+        assert isinstance(row['stop'], str)
+        assert isinstance(row['latitude'], float)
+        assert isinstance(row['longitude'], float)
+        assert isinstance(row['datetime'], datetime)
+        assert isinstance(row['entries'], int)
+        assert isinstance(row['exits'], int)
+        iters += 1
+
+    assert iters > 3000
 
 
 def test_parse_ltiv_data(reports_fixture):
