@@ -16,7 +16,6 @@ CREATE TABLE [ccc_arrival_times2] (
 [ontimestatus] varchar(20),
 [vehicle] varchar(50) );
 """
-import logging
 import re
 from datetime import date
 from io import StringIO
@@ -26,9 +25,8 @@ import mechanize  # type: ignore
 import pandas as pd  # type: ignore
 import requests
 from bs4 import BeautifulSoup  # type: ignore
+from loguru import logger
 from tenacity import retry, wait_random_exponential, stop_after_attempt
-
-logger = logging.getLogger(__name__)
 
 HEADERS = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 ' \
           '(KHTML, like Gecko) Chrome/86.0.4240.183 Safari/537.36'
@@ -78,7 +76,7 @@ class Reports:
         return self.browser.submit().read()
 
     @retry(wait=wait_random_exponential(multiplier=1, max=60), stop=stop_after_attempt(7), reraise=True)
-    def get_otp(self, start_date: date, end_date: date,  # pylint:disable=too-many-locals,too-many-statements
+    def get_otp(self, start_date: date, end_date: date,  # pylint:disable=too-many-locals
                 hours: str = ','.join([str(x) for x in range(24)])) -> pd.DataFrame:
         """ Pulls the on time performance data
         :param start_date: The start date to search, inclusive. Searches starting from 12:00 AM
@@ -87,15 +85,11 @@ class Reports:
         :return: Returns a dataframe with the keys 'date', 'route', 'stop', 'blockid', 'scheduledarrivaltime',
             'actualarrivaltime', 'scheduleddeparturetime', 'actualdeparturetime', 'ontimestatus', 'vehicle
         """
-        logger.info("Getting OTP report for %s to %s", start_date, end_date)
+        logger.info("Getting OTP report for {} to {}", start_date, end_date)
         # Pull the page the first time to get the form that we will need to resubmit a few times
-        resp = self.browser.open("{}/Secure/Admin/Reports/ReportViewer.aspx?Path=%2fOldRidesystems%2fPerformance+"
-                                 "Reports%2fOn+Time+Performance".format(self.baseurl)).read()
-        soup = BeautifulSoup(resp, features="html.parser")
-        html = soup.find('form', id='aspnetForm').prettify().encode('utf8')
-
-        self.browser.select_form('aspnetForm')
-        self.browser.form.set_all_readonly(False)
+        soup, html = self._select_form(
+            '/Secure/Admin/Reports/ReportViewer.aspx?Path='
+            '%2fOldRidesystems%2fPerformance+Reports%2fOn+Time+Performance')
 
         ctrl_dict: Dict[str, Union[str, List]] = {
             # Start Date
@@ -203,7 +197,7 @@ class Reports:
             ret_tmp['actualdeparturetime'] = pd.to_datetime(ret_tmp['actualdeparturetime'],
                                                             format='%I:%M:%S %p').dt.time
             ret_tmp['vehicle'] = ret_tmp['vehicle'].astype(str)
-            ret_tmp['route'] = ret_tmp['route'].replace(' Route', '')
+            ret_tmp['route'] = ret_tmp['route'].str.split(" ", n=1).str[0]
 
             if ret.empty:
                 ret = ret_tmp
@@ -213,20 +207,16 @@ class Reports:
         return ret
 
     def get_runtimes(self, start_date: date, end_date: date) -> pd.DataFrame:
-        """ Pulls the on time performance data
+        """
+        Pulls the on time performance data
         :param start_date: The start date to search, inclusive. Searches starting from 12:00 AM
         :param end_date: The end date to search, inclusive. Searches ending at 11:59:59 PM
         :return: Returns a dataframe with 'route', 'vehicle', 'start_time', and 'end_time'
         """
-        logger.info("Getting runtime report for %s to %s", start_date, end_date)
+        logger.info("Getting runtime report for {} to {}", start_date, end_date)
         # Pull the page the first time to get the form that we will need to resubmit a few times
-        resp = self.browser.open('{}/Secure/Admin/Reports/ReportViewer.aspx?Path=%2fOldRidesystems%2fGeneral+Reports%2f'
-                                 'Vehicle_Assignment_Report_Ver2'.format(self.baseurl)).read()
-        soup = BeautifulSoup(resp, features="html.parser")
-        html = soup.find('form', id='aspnetForm').prettify().encode('utf8')
-
-        self.browser.select_form('aspnetForm')
-        self.browser.form.set_all_readonly(False)
+        soup, html = self._select_form('/Secure/Admin/Reports/ReportViewer.aspx?Path=%2f'
+                                       'OldRidesystems%2fGeneral+Reports%2fVehicle_Assignment_Report_Ver2')
 
         ctrl_dict: Dict[str, Union[str, List]] = {
             'ctl00$MainContent$scriptManager':
@@ -259,8 +249,59 @@ class Reports:
         resp = self._make_response_and_submit(ctrl_dict, html)
         csv_data = self._download_csv(resp)
 
-        return pd.read_csv(StringIO(csv_data.text), skiprows=[0, 1, 2, 3], usecols=[1, 5, 6, 7],
-                           names=['route', 'vehicle', 'start_time', 'end_time'], parse_dates=['start_time', 'end_time'])
+        ret = pd.read_csv(StringIO(csv_data.text), skiprows=[0, 1, 2, 3], usecols=[1, 5, 6, 7],
+                          names=['route', 'vehicle', 'start_time', 'end_time'], parse_dates=['start_time', 'end_time'])
+        ret['route'] = ret['route'].str.split(" ", n=1).str[0]
+
+        return ret
+
+    def get_ridership(self, start_date: date, end_date: date) -> pd.DataFrame:
+        """
+        Pulls the raw ridership data report
+        :param start_date: The start date to search, inclusive. Searches starting from 12:00 AM
+        :param end_date: The end date to search, inclusive. Searches ending at 11:59:59 PM
+        """
+        logger.info('Getting raw ridership for dates {} and {}', start_date, end_date)
+        soup, html = self._select_form(
+            '/Secure/Admin/Reports/ReportViewer.aspx?Path=%2fOldRidesystems%2fRidership%2fRaw+Ridership')
+
+        ctrl_dict: Dict[str, Union[str, List]] = {
+            'ctl00$MainContent$scriptManager':
+                'ctl00$MainContent$scriptManager|ctl00$MainContent$ssrsReportViewer$ctl13$Reserved_AsyncLoadTarget',
+            '__EVENTTARGET': 'ctl00$MainContent$ssrsReportViewer$ctl13$Reserved_AsyncLoadTarget',
+            '__VIEWSTATE': soup.find('input', {'name': '__VIEWSTATE'})['value'],
+            '__VIEWSTATEGENERATOR': soup.find('input', {'name': '__VIEWSTATEGENERATOR'})['value'],
+            '__EVENTVALIDATION': soup.find('input', {'name': '__EVENTVALIDATION'})['value'],
+            'ctl00$MainContent$ssrsReportViewer$ctl15': 'standards',
+            'ctl00$MainContent$ssrsReportViewer$AsyncWait$HiddenCancelField': 'False',
+            'ctl00$MainContent$ssrsReportViewer$ctl08$ctl03$txtValue': start_date.strftime('%#m/%#d/%Y'),
+            'ctl00$MainContent$ssrsReportViewer$ctl08$ctl05$txtValue': end_date.strftime('%#m/%#d/%Y 11:59:59 PM'),
+            'ctl00$MainContent$ssrsReportViewer$ToggleParam$collapse': 'false',
+            'null': '100',
+            'ctl00$MainContent$ssrsReportViewer$ctl11$collapse': 'false',
+            'ctl00$MainContent$ssrsReportViewer$ctl13$VisibilityState$ctl00': 'None',
+            'ctl00$MainContent$ssrsReportViewer$ctl13$ReportControl$ctl04': '100',
+            '__ASYNCPOST': 'true'
+        }
+
+        resp = self._make_response_and_submit(ctrl_dict, html)
+        csv_data = self._download_csv(resp)
+
+        dtypes = {'vehicle': str,
+                  'route': str,
+                  'stop': str,
+                  'latitude': float,
+                  'longitude': float,
+                  'datetime': str,
+                  'entries': int,
+                  'exits': int
+                  }
+        ret = pd.read_csv(StringIO(csv_data.text), usecols=[1, 4, 6, 7, 8, 10, 11, 12], parse_dates=['datetime'],
+                          skiprows=[0], keep_default_na=False, names=dtypes.keys())
+        ret['route'] = ret['route'].str.split(" ", n=1).str[0]
+
+        # remove rows not on a route, and return
+        return ret[ret['route'] != '']
 
     @staticmethod
     def parse_ltiv_data(data: str) -> Dict[str, Tuple[str, str]]:
@@ -310,9 +351,24 @@ class Reports:
                                 )
 
         assert csv_data, "Request failed with status code {}".format(csv_data.status_code)
-        logging.debug("Got %s bytes of data", len(csv_data.text))
+        logger.debug("Got %s bytes of data", len(csv_data.text))
 
         return csv_data
+
+    def _select_form(self, url_path) -> Tuple[BeautifulSoup, str]:
+        """
+        Session setup, by opening the inital page, and selecting the proper form
+        :param url_path: Suffix of the URL of the report to pull and select. Will be appended to self.baseurl
+        :return: Tuple with the response as a BeautifulSoup object, and the html of the form we selected
+        """
+        resp = self.browser.open("{}{}".format(self.baseurl, url_path)).read()
+        soup = BeautifulSoup(resp, features="html.parser")
+        html = soup.find('form', id='aspnetForm').prettify().encode('utf8')
+
+        self.browser.select_form('aspnetForm')
+        self.browser.form.set_all_readonly(False)
+
+        return soup, html
 
     def _set_controls(self, ctrl_dict: Dict[str, Any]) -> None:
         for ctrl_id, val in ctrl_dict.items():
@@ -326,6 +382,6 @@ class Reports:
         self._log_controls()
 
     def _log_controls(self) -> None:
-        logging.debug('\n'.join(
+        logger.debug('\n'.join(
             ['%s: %s *%s*' % (c.name, c.value, c.disabled) if c.disabled else '%s: %s' % (c.name, c.value) for c in
              self.browser.form.controls]))
