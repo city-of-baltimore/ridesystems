@@ -4,7 +4,7 @@ Tests reports.py
 Should be called as tox -- --username <username> --password <password>
 """
 
-from datetime import datetime, time, timedelta
+from datetime import date, datetime, time, timedelta
 
 import pandas as pd
 import pytest  # type: ignore
@@ -95,7 +95,7 @@ def test_get_otp_apr_6(reports_fixture):
         assert isinstance(row['vehicle'], str)
         iters += 1
 
-    assert iters > 50
+    assert iters > 40
 
 
 def test_get_runtimes(reports_fixture):
@@ -114,15 +114,12 @@ def test_get_runtimes(reports_fixture):
         assert isinstance(row['vehicle'], str)
         iters += 1
 
-    assert iters > 50
+    assert iters > 40
 
 
 def test_get_ridership(reports_fixture):
     """Test get_ridership"""
-    start_date = datetime.today() - timedelta(days=1)
-    end_date = datetime.today() - timedelta(days=1)
-
-    ridership_data = reports_fixture.get_ridership(start_date, end_date)
+    ridership_data = reports_fixture.get_ridership(date(2021, 7, 19), date(2021, 7, 19))
 
     iters = 0
     for _, row in ridership_data.iterrows():
