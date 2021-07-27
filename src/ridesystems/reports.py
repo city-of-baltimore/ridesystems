@@ -299,6 +299,18 @@ class Reports:
         ret = pd.read_csv(StringIO(csv_data.text), usecols=[1, 4, 6, 7, 8, 10, 11, 12], parse_dates=['datetime'],
                           skiprows=[0], keep_default_na=False, names=dtypes.keys())
         ret['route'] = ret['route'].str.split(" ", n=1).str[0]
+        ret['datetime'] = ret['datetime'].dt.floor('Min')
+
+        ret = ret.groupby(['vehicle', 'route', 'stop', 'datetime']).aggregate({
+            'vehicle': 'first',
+            'route': 'first',
+            'stop': 'first',
+            'latitude': 'first',
+            'longitude': 'first',
+            'datetime': 'first',
+            'entries': 'sum',
+            'exits': 'sum'
+        })
 
         # remove rows not on a route, and return
         return ret[ret['route'] != '']
