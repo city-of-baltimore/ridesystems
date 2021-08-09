@@ -49,7 +49,7 @@ def test_get_otp_all(reports_fixture):
         assert isinstance(row['scheduleddeparturetime'], time) or row['scheduleddeparturetime'] is pd.NaT
         assert isinstance(row['actualdeparturetime'], time) or row['actualdeparturetime'] is pd.NaT
         assert isinstance(row['ontimestatus'], str)
-        assert isinstance(row['vehicle'], str)
+        assert isinstance(row['vehicle'], str) or row['vehicle'] is None
 
         routes.add(row['route'])
         stops.add(row['stop'])
@@ -92,7 +92,7 @@ def test_get_otp_apr_6(reports_fixture):
         assert isinstance(row['scheduleddeparturetime'], time) or row['scheduleddeparturetime'] is pd.NaT
         assert isinstance(row['actualdeparturetime'], time) or row['actualdeparturetime'] is pd.NaT
         assert isinstance(row['ontimestatus'], str)
-        assert isinstance(row['vehicle'], str)
+        assert isinstance(row['vehicle'], str) or row['vehicle'] is None
         iters += 1
 
     assert iters > 40
@@ -112,6 +112,7 @@ def test_get_runtimes(reports_fixture):
         assert isinstance(row['route'], str)
         assert row['route'] in ['Green', 'Banner', 'Purple', 'Orange']
         assert isinstance(row['vehicle'], str)
+        assert row['vehicle'].lower() != 'nan'
         iters += 1
 
     assert iters > 40

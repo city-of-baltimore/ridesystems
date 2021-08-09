@@ -11,19 +11,19 @@ def pytest_addoption(parser):
     parser.addoption("--password", action="store")
 
 
-@pytest.fixture(name='username')
+@pytest.fixture(scope='session', name='username')
 def username_fixture(request):
     """Username fixture"""
     return request.config.getoption("username")
 
 
-@pytest.fixture(name='password')
+@pytest.fixture(scope='session', name='password')
 def password_fixture(request):
     """Password fixture"""
     return request.config.getoption("password")
 
 
-@pytest.fixture(name='reports_fixture')
+@pytest.fixture(scope='session', name='reports_fixture')
 def fix_report(username, password):
     """Setup for the tests"""
     assert username, "Username required (use --username)"
