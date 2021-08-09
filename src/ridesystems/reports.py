@@ -3,18 +3,6 @@ Reports with Ridesystems website
 
 Written independently by brian.seel@baltimorecity.gov. If this were written in collaboration with Ridesystems, there
 would just be a reasonable API offered.
-
-CREATE TABLE [ccc_arrival_times2] (
-[date] [date] NOT NULL,
-[route] varchar(50) NOT NULL,
-[stop] varchar(max) NOT NULL,
-[blockid] varchar(100) NOT NULL,
-[scheduledarrivaltime] [time] NOT NULL,
-[actualarrivaltime] [time],
-[scheduleddeparturetime] [time] NOT NULL,
-[actualdeparturetime] [time],
-[ontimestatus] varchar(20),
-[vehicle] varchar(50) );
 """
 import re
 from datetime import date
@@ -186,7 +174,7 @@ class Reports:
                                   names=['date', 'route', 'stop', 'blockid', 'scheduledarrivaltime',
                                          'actualarrivaltime',
                                          'scheduleddeparturetime', 'actualdeparturetime', 'ontimestatus', 'vehicle'],
-                                  parse_dates=['date'], dtype=str, )
+                                  parse_dates=['date'], dtype=str, na_values='nan')
 
             ret_tmp['scheduledarrivaltime'] = pd.to_datetime(ret_tmp['scheduledarrivaltime'],
                                                              format='%I:%M:%S %p').dt.time
@@ -196,7 +184,8 @@ class Reports:
                                                                format='%I:%M:%S %p').dt.time
             ret_tmp['actualdeparturetime'] = pd.to_datetime(ret_tmp['actualdeparturetime'],
                                                             format='%I:%M:%S %p').dt.time
-            ret_tmp['vehicle'] = ret_tmp['vehicle'].astype(str)
+
+            ret_tmp['vehicle'] = ret_tmp['vehicle'].astype(str).replace({'nan': None})
             ret_tmp['route'] = ret_tmp['route'].str.split(" ", n=1).str[0]
 
             if ret.empty:
@@ -298,7 +287,12 @@ class Reports:
                   }
         ret = pd.read_csv(StringIO(csv_data.text), usecols=[1, 4, 6, 7, 8, 10, 11, 12], parse_dates=['datetime'],
                           skiprows=[0], keep_default_na=False, names=dtypes.keys())
+
+        # remove rows not on a route
+        ret = ret[ret['route'] != '']
+        # remove everything but the route color
         ret['route'] = ret['route'].str.split(" ", n=1).str[0]
+        # drop the seconds
         ret['datetime'] = ret['datetime'].dt.floor('Min')
 
         ret = ret.groupby(['vehicle', 'route', 'stop', 'datetime']).aggregate({
@@ -312,8 +306,7 @@ class Reports:
             'exits': 'sum'
         })
 
-        # remove rows not on a route, and return
-        return ret[ret['route'] != '']
+        return ret
 
     @staticmethod
     def parse_ltiv_data(data: str) -> Dict[str, Tuple[str, str]]:
@@ -363,7 +356,7 @@ class Reports:
                                 )
 
         assert csv_data, "Request failed with status code {}".format(csv_data.status_code)
-        logger.debug("Got %s bytes of data", len(csv_data.text))
+        logger.debug("Got {} bytes of data", len(csv_data.text))
 
         return csv_data
 
