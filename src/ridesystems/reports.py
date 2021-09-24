@@ -207,6 +207,10 @@ class Reports:
         soup, html = self._select_form('/Secure/Admin/Reports/ReportViewer.aspx?Path=%2f'
                                        'OldRidesystems%2fGeneral+Reports%2fVehicle_Assignment_Report_Ver2')
 
+        routes = [i.text.replace('\xa0', ' ') for i in soup.find_all('label', {
+                  'for': re.compile(r'ctl00_MainContent_ssrsReportViewer_ctl08_ctl09_divDropDown_ctl..')}) if
+                  i.text.replace('\xa0', ' ') != '(Select All)']
+
         ctrl_dict: Dict[str, Union[str, List]] = {
             'ctl00$MainContent$scriptManager':
                 'ctl00$MainContent$scriptManager|ctl00$MainContent$ssrsReportViewer$ctl08$ctl00',
@@ -222,11 +226,9 @@ class Reports:
             # Group By
             'ctl00$MainContent$ssrsReportViewer$ctl08$ctl07$ddValue': ['1'],
             # Routes
-            'ctl00$MainContent$ssrsReportViewer$ctl08$ctl09$txtValue':
-                ",".join([i.text.replace('\xa0', ' ') for i in soup.find_all('label', {
-                    'for': re.compile(r'ctl00_MainContent_ssrsReportViewer_ctl08_ctl09_divDropDown_ctl..')}) if
-                          i.text.replace('\xa0', ' ') != '(Select All)']),
-            'ctl00$MainContent$ssrsReportViewer$ctl08$ctl09$divDropDown$ctl01$HiddenIndices': '0,1,2,3,4',
+            'ctl00$MainContent$ssrsReportViewer$ctl08$ctl09$txtValue': ','.join(routes),
+            'ctl00$MainContent$ssrsReportViewer$ctl08$ctl09$divDropDown$ctl01$HiddenIndices':
+                ','.join([str(i) for i in range(len(routes))]),
             'ctl00$MainContent$ssrsReportViewer$ToggleParam$collapse': 'false',
             'ctl00$MainContent$ssrsReportViewer$ctl11$collapse': 'false',
             'ctl00$MainContent$ssrsReportViewer$ctl13$VisibilityState$ctl00': 'None',
