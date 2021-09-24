@@ -32,7 +32,7 @@ class Reports:
 
     @retry(wait=wait_random_exponential(multiplier=1, max=60), stop=stop_after_attempt(7), reraise=True)
     def _login(self, username: str, password: str) -> None:
-        self.browser.open("{}/login.aspx".format(self.baseurl))
+        self.browser.open(f'{self.baseurl}/login.aspx')
         self.browser.select_form('aspnetForm')
 
         username_control = self.browser.form.find_control(type='text')
@@ -45,7 +45,8 @@ class Reports:
         # Login validation
         page_contents = self.browser.response().read()
         soup = BeautifulSoup(page_contents, features="html.parser")
-        assert soup.find('div', {'class': 'login-panel'}) is None, "Login failed"
+        if soup.find('div', {'class': 'login-panel'}) is not None:
+            raise AssertionError('Login failed')
 
     @retry(wait=wait_random_exponential(multiplier=1, max=60), stop=stop_after_attempt(7), reraise=True)
     def _make_response_and_submit(self, ctrl_dict: Dict[str, Union[str, List]], html: str) -> bytes:
@@ -321,8 +322,9 @@ class Reports:
         def get_next_element(idata: str, ilength: int = None) -> Tuple[str, str]:
             """Parser that pulls off an element to the next delimiter, and optionally will read ilength bytes"""
             if ilength is not None:
-                assert ilength < len(idata) and idata[ilength] == '|', \
-                    "Malformed input. Expected delimiter where there wasn't one. idata: {}".format(idata[:100])
+                if not (ilength < len(idata) and idata[ilength] == '|'):
+                    raise AssertionError(f"Malformed input. Expected delimiter where there wasn't one. idata: "
+                                         f"{idata[:100]}")
                 iret = idata[:ilength]
                 idata = idata[ilength + 1:]  # drop the delimiter
                 return iret, idata
@@ -346,18 +348,20 @@ class Reports:
         :param resp: The contents of a webpage that will contain the download url
         """
         response_url_base_group = re.search(b'"ExportUrlBase":"(.*?)"', resp)
-        assert response_url_base_group is not None
+        if response_url_base_group is None:
+            raise AssertionError('response_url_base_group was none, which was unexpected')
         response_url_base = response_url_base_group.group(1).decode('utf-8').replace('\\u0026', '&')
 
-        csv_data = requests.get("{}{}CSV".format(self.baseurl, response_url_base),
+        csv_data = requests.get(f'{self.baseurl}{response_url_base}CSV',
                                 cookies=self.browser.cookiejar,
                                 headers={
-                                    'referer': '{}/Secure/Admin/Reports/ReportViewer.aspx?Path=%2fOldRidesystems%2f'
-                                               'Ridership%2fAll+Ridership+By+Vehicle'.format(self.baseurl),
+                                    'referer': f'{self.baseurl}/Secure/Admin/Reports/ReportViewer.aspx?Path='
+                                               f'%2fOldRidesystems%2fRidership%2fAll+Ridership+By+Vehicle',
                                     'User-Agent': HEADERS},
                                 )
 
-        assert csv_data, "Request failed with status code {}".format(csv_data.status_code)
+        if csv_data is None:
+            raise AssertionError(f'Request failed with status code {csv_data.status_code}')
         logger.debug("Got {} bytes of data", len(csv_data.text))
 
         return csv_data
@@ -368,7 +372,7 @@ class Reports:
         :param url_path: Suffix of the URL of the report to pull and select. Will be appended to self.baseurl
         :return: Tuple with the response as a BeautifulSoup object, and the html of the form we selected
         """
-        resp = self.browser.open("{}{}".format(self.baseurl, url_path)).read()
+        resp = self.browser.open("{self.baseurl}{url_path}").read()
         soup = BeautifulSoup(resp, features="html.parser")
         html = soup.find('form', id='aspnetForm').prettify().encode('utf8')
 
