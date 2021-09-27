@@ -23,7 +23,7 @@ HEADERS = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 ' \
 class Reports:
     """Setup for Ridesystems session"""
 
-    def __init__(self, username: str, password: str, baseurl: str = "https://cityofbaltimore.ridesystems.net"):
+    def __init__(self, username: str, password: str, baseurl: str = 'https://cityofbaltimore.ridesystems.net'):
         self.browser = mechanize.Browser()
         self.browser.addheaders = [('User-agent', HEADERS)]
 
@@ -32,7 +32,7 @@ class Reports:
 
     @retry(wait=wait_random_exponential(multiplier=1, max=60), stop=stop_after_attempt(7), reraise=True)
     def _login(self, username: str, password: str) -> None:
-        self.browser.open("{}/login.aspx".format(self.baseurl))
+        self.browser.open(f'{self.baseurl}/login.aspx')
         self.browser.select_form('aspnetForm')
 
         username_control = self.browser.form.find_control(type='text')
@@ -44,8 +44,9 @@ class Reports:
 
         # Login validation
         page_contents = self.browser.response().read()
-        soup = BeautifulSoup(page_contents, features="html.parser")
-        assert soup.find('div', {'class': 'login-panel'}) is None, "Login failed"
+        soup = BeautifulSoup(page_contents, features='html.parser')
+        if soup.find('div', {'class': 'login-panel'}) is not None:
+            raise AssertionError('Login failed')
 
     @retry(wait=wait_random_exponential(multiplier=1, max=60), stop=stop_after_attempt(7), reraise=True)
     def _make_response_and_submit(self, ctrl_dict: Dict[str, Union[str, List]], html: str) -> bytes:
@@ -73,7 +74,7 @@ class Reports:
         :return: Returns a dataframe with the keys 'date', 'route', 'stop', 'blockid', 'scheduledarrivaltime',
             'actualarrivaltime', 'scheduleddeparturetime', 'actualdeparturetime', 'ontimestatus', 'vehicle
         """
-        logger.info("Getting OTP report for {} to {}", start_date, end_date)
+        logger.info(f'Getting OTP report for {start_date} to {end_date}')
         # Pull the page the first time to get the form that we will need to resubmit a few times
         soup, html = self._select_form(
             '/Secure/Admin/Reports/ReportViewer.aspx?Path='
@@ -186,7 +187,7 @@ class Reports:
                                                             format='%I:%M:%S %p').dt.time
 
             ret_tmp['vehicle'] = ret_tmp['vehicle'].astype(str).replace({'nan': None})
-            ret_tmp['route'] = ret_tmp['route'].str.split(" ", n=1).str[0]
+            ret_tmp['route'] = ret_tmp['route'].str.split(' ', n=1).str[0]
 
             if ret.empty:
                 ret = ret_tmp
@@ -202,10 +203,14 @@ class Reports:
         :param end_date: The end date to search, inclusive. Searches ending at 11:59:59 PM
         :return: Returns a dataframe with 'route', 'vehicle', 'start_time', and 'end_time'
         """
-        logger.info("Getting runtime report for {} to {}", start_date, end_date)
+        logger.info(f'Getting runtime report for {start_date} to {end_date}')
         # Pull the page the first time to get the form that we will need to resubmit a few times
         soup, html = self._select_form('/Secure/Admin/Reports/ReportViewer.aspx?Path=%2f'
                                        'OldRidesystems%2fGeneral+Reports%2fVehicle_Assignment_Report_Ver2')
+
+        routes = [i.text.replace('\xa0', ' ') for i in soup.find_all('label', {
+                  'for': re.compile(r'ctl00_MainContent_ssrsReportViewer_ctl08_ctl09_divDropDown_ctl..')}) if
+                  i.text.replace('\xa0', ' ') != '(Select All)']
 
         ctrl_dict: Dict[str, Union[str, List]] = {
             'ctl00$MainContent$scriptManager':
@@ -222,11 +227,9 @@ class Reports:
             # Group By
             'ctl00$MainContent$ssrsReportViewer$ctl08$ctl07$ddValue': ['1'],
             # Routes
-            'ctl00$MainContent$ssrsReportViewer$ctl08$ctl09$txtValue':
-                ",".join([i.text.replace('\xa0', ' ') for i in soup.find_all('label', {
-                    'for': re.compile(r'ctl00_MainContent_ssrsReportViewer_ctl08_ctl09_divDropDown_ctl..')}) if
-                          i.text.replace('\xa0', ' ') != '(Select All)']),
-            'ctl00$MainContent$ssrsReportViewer$ctl08$ctl09$divDropDown$ctl01$HiddenIndices': '0,1,2,3,4',
+            'ctl00$MainContent$ssrsReportViewer$ctl08$ctl09$txtValue': ','.join(routes),
+            'ctl00$MainContent$ssrsReportViewer$ctl08$ctl09$divDropDown$ctl01$HiddenIndices':
+                ','.join([str(i) for i in range(len(routes))]),
             'ctl00$MainContent$ssrsReportViewer$ToggleParam$collapse': 'false',
             'ctl00$MainContent$ssrsReportViewer$ctl11$collapse': 'false',
             'ctl00$MainContent$ssrsReportViewer$ctl13$VisibilityState$ctl00': 'None',
@@ -240,7 +243,7 @@ class Reports:
 
         ret = pd.read_csv(StringIO(csv_data.text), skiprows=[0, 1, 2, 3], usecols=[1, 5, 6, 7],
                           names=['route', 'vehicle', 'start_time', 'end_time'], parse_dates=['start_time', 'end_time'])
-        ret['route'] = ret['route'].str.split(" ", n=1).str[0]
+        ret['route'] = ret['route'].str.split(' ', n=1).str[0]
 
         return ret
 
@@ -250,7 +253,7 @@ class Reports:
         :param start_date: The start date to search, inclusive. Searches starting from 12:00 AM
         :param end_date: The end date to search, inclusive. Searches ending at 11:59:59 PM
         """
-        logger.info('Getting raw ridership for dates {} and {}', start_date, end_date)
+        logger.info(f'Getting raw ridership for dates {start_date} and {end_date}')
         soup, html = self._select_form(
             '/Secure/Admin/Reports/ReportViewer.aspx?Path=%2fOldRidesystems%2fRidership%2fRaw+Ridership')
 
@@ -291,7 +294,7 @@ class Reports:
         # remove rows not on a route
         ret = ret[ret['route'] != '']
         # remove everything but the route color
-        ret['route'] = ret['route'].str.split(" ", n=1).str[0]
+        ret['route'] = ret['route'].str.split(' ', n=1).str[0]
         # drop the seconds
         ret['datetime'] = ret['datetime'].dt.floor('Min')
 
@@ -319,8 +322,9 @@ class Reports:
         def get_next_element(idata: str, ilength: int = None) -> Tuple[str, str]:
             """Parser that pulls off an element to the next delimiter, and optionally will read ilength bytes"""
             if ilength is not None:
-                assert ilength < len(idata) and idata[ilength] == '|', \
-                    "Malformed input. Expected delimiter where there wasn't one. idata: {}".format(idata[:100])
+                if not (ilength < len(idata) and idata[ilength] == '|'):
+                    raise AssertionError(f'Malformed input. Expected delimiter where there was not one. idata: '
+                                         f'{idata[:100]}')
                 iret = idata[:ilength]
                 idata = idata[ilength + 1:]  # drop the delimiter
                 return iret, idata
@@ -344,19 +348,21 @@ class Reports:
         :param resp: The contents of a webpage that will contain the download url
         """
         response_url_base_group = re.search(b'"ExportUrlBase":"(.*?)"', resp)
-        assert response_url_base_group is not None
+        if response_url_base_group is None:
+            raise AssertionError('response_url_base_group was none, which was unexpected')
         response_url_base = response_url_base_group.group(1).decode('utf-8').replace('\\u0026', '&')
 
-        csv_data = requests.get("{}{}CSV".format(self.baseurl, response_url_base),
+        csv_data = requests.get(f'{self.baseurl}{response_url_base}CSV',
                                 cookies=self.browser.cookiejar,
                                 headers={
-                                    'referer': '{}/Secure/Admin/Reports/ReportViewer.aspx?Path=%2fOldRidesystems%2f'
-                                               'Ridership%2fAll+Ridership+By+Vehicle'.format(self.baseurl),
+                                    'referer': f'{self.baseurl}/Secure/Admin/Reports/ReportViewer.aspx?Path='
+                                               f'%2fOldRidesystems%2fRidership%2fAll+Ridership+By+Vehicle',
                                     'User-Agent': HEADERS},
                                 )
 
-        assert csv_data, "Request failed with status code {}".format(csv_data.status_code)
-        logger.debug("Got {} bytes of data", len(csv_data.text))
+        if csv_data is None:
+            raise AssertionError(f'Request failed with status code {csv_data.status_code}')
+        logger.debug(f'Got {len(csv_data.text)} bytes of data')
 
         return csv_data
 
@@ -366,8 +372,8 @@ class Reports:
         :param url_path: Suffix of the URL of the report to pull and select. Will be appended to self.baseurl
         :return: Tuple with the response as a BeautifulSoup object, and the html of the form we selected
         """
-        resp = self.browser.open("{}{}".format(self.baseurl, url_path)).read()
-        soup = BeautifulSoup(resp, features="html.parser")
+        resp = self.browser.open(f'{self.baseurl}{url_path}').read()
+        soup = BeautifulSoup(resp, features='html.parser')
         html = soup.find('form', id='aspnetForm').prettify().encode('utf8')
 
         self.browser.select_form('aspnetForm')
@@ -388,5 +394,6 @@ class Reports:
 
     def _log_controls(self) -> None:
         logger.debug('\n'.join(
-            ['%s: %s *%s*' % (c.name, c.value, c.disabled) if c.disabled else '%s: %s' % (c.name, c.value) for c in
-             self.browser.form.controls]))
+            [f'{c.name}: {c.value} *{c.disabled}*'
+             if c.disabled else f'{c.name}: {c.value}'
+             for c in self.browser.form.controls]))

@@ -64,7 +64,7 @@ class API:
     """Wrapper for the Ride Systems API. Their API is pretty terrible, so a lot of functionality is in the scraper from
     ridesystems.reports.Reports"""
 
-    def __init__(self, api_key: str, base_url="https://cityofbaltimore.ridesystems.net"):
+    def __init__(self, api_key: str, base_url='https://cityofbaltimore.ridesystems.net'):
         """
         :param api_key: Ridesystems API key (although nothing really happens if you don't provide one. RS doesn't check)
         :param base_url: Base url of your Ride Systems instance
@@ -128,7 +128,7 @@ class API:
             Longitude
         """
         response = self.session.get(
-            "{}/Services/JSONPRelay.svc/GetRoutesForMapWithScheduleWithEncodedLine".format(self.base_url))
+            f'{self.base_url}/Services/JSONPRelay.svc/GetRoutesForMapWithScheduleWithEncodedLine')
         return response.json()
 
     @retry(wait=wait_random_exponential(multiplier=1, max=60), stop=stop_after_attempt(7), reraise=True)
@@ -148,7 +148,7 @@ class API:
             IsOnRoute – Is the vehicle on Route?
             IsDelayed– Is the vehicle Delayed?
         """
-        response = self.session.get("{}/Services/JSONPRelay.svc/GetMapVehiclePoints".format(self.base_url))
+        response = self.session.get(f'{self.base_url}/Services/JSONPRelay.svc/GetMapVehiclePoints')
         return response.json()
 
     @retry(wait=wait_random_exponential(multiplier=1, max=60), stop=stop_after_attempt(7), reraise=True)
@@ -175,13 +175,13 @@ class API:
             OnTimeStatus– 0 – On time, 2 – Early, 3 – Late
 
         """
-        payload: VehicleRouteStopEstimates = {"quantity": str(quantity),
-                                              "vehicleIdStrings": None,
-                                              "ApiKey": self.api_key}
+        payload: VehicleRouteStopEstimates = {'quantity': str(quantity),
+                                              'vehicleIdStrings': None,
+                                              'ApiKey': self.api_key}
 
         if vehicle_id:
-            payload["vehicleIdStrings"] = ",".join(str(i) for i in vehicle_id)
-        response = self.session.get("{}/Services/JSONPRelay.svc/GetVehicleRouteStopEstimates".format(self.base_url),
+            payload['vehicleIdStrings'] = ','.join(str(i) for i in vehicle_id)
+        response = self.session.get(f'{self.base_url}/Services/JSONPRelay.svc/GetVehicleRouteStopEstimates',
                                     params=cast(Dict, payload))
         return response.json()
 
@@ -213,17 +213,17 @@ class API:
             ScheduledDepartureTime – Scheduled departure Time of Day
             OnTimeStatus– 0 – On time, 2 – Early, 3 – Late
         """
-        payload: StopArrivalTimesDict = {"timesPerStop": times_per_stop,
-                                         "routeIDs": None,
-                                         "routeStopIDs": None,
-                                         "ApiKey": self.api_key}
+        payload: StopArrivalTimesDict = {'timesPerStop': times_per_stop,
+                                         'routeIDs': None,
+                                         'routeStopIDs': None,
+                                         'ApiKey': self.api_key}
         if route_ids:
-            payload["routeIDs"] = ", ".join([str(x) for x in route_ids])
+            payload['routeIDs'] = ', '.join([str(x) for x in route_ids])
 
         if stop_ids:
-            payload["routeStopIDs"] = ", ".join(map(str, stop_ids))
+            payload['routeStopIDs'] = ', '.join(map(str, stop_ids))
 
-        response = self.session.get("{}/Services/JSONPRelay.svc/GetStopArrivalTimes".format(self.base_url),
+        response = self.session.get(f'{self.base_url}/Services/JSONPRelay.svc/GetStopArrivalTimes',
                                     params=cast(Dict, payload))
         return response.json()
 
@@ -248,11 +248,11 @@ class API:
                 VehicleId – ID of Vehicle
         """
 
-        payload: StopArrivalTimesDict = {"timesPerStop": times_per_stop,
-                                         "routeIDs": None,
-                                         "routeStopIDs": None,
-                                         "ApiKey": self.api_key}
-        response = self.session.get("{}/Services/JSONPRelay.svc/GetRouteStopArrivals".format(self.base_url),
+        payload: StopArrivalTimesDict = {'timesPerStop': times_per_stop,
+                                         'routeIDs': None,
+                                         'routeStopIDs': None,
+                                         'ApiKey': self.api_key}
+        response = self.session.get(f'{self.base_url}/Services/JSONPRelay.svc/GetRouteStopArrivals',
                                     params=cast(Dict, payload))
         return response.json()
 
@@ -278,8 +278,8 @@ class API:
             RouteStopID – Unique Identifier for a Stop on a Route
             MinutesAfterStart – Number of minutes after the start of the loop until arrival at this stop
         """
-        payload: RouteSchedules = {"routeID": route_id, "ApiKey": self.api_key}
-        response = self.session.get("{}/Services/JSONPRelay.svc/GetRouteSchedules".format(self.base_url),
+        payload: RouteSchedules = {'routeID': route_id, 'ApiKey': self.api_key}
+        response = self.session.get(f'{self.base_url}/Services/JSONPRelay.svc/GetRouteSchedules',
                                     params=cast(Dict, payload))
         return response.json()
 
@@ -299,8 +299,8 @@ class API:
             ServerTime– Current time of day (in MST)
             ServerTimeUTC– UTC Current Time of day
         """
-        payload: RouteSchedules = {"routeID": route_id, "ApiKey": self.api_key}
-        response = self.session.get("{}/Services/JSONPRelay.svc/GetRouteScheduleTimes".format(self.base_url),
+        payload: RouteSchedules = {'routeID': route_id, 'ApiKey': self.api_key}
+        response = self.session.get(f'{self.base_url}/Services/JSONPRelay.svc/GetRouteScheduleTimes',
                                     params=cast(Dict, payload))
         return response.json()
 
@@ -324,8 +324,8 @@ class API:
             HideRouteLine – Setting on whether to show the Route Line
             UseScheduleTripsInPassengerCounter– Not used
         """
-        payload: RouteSchedules = {"routeID": route_id, "ApiKey": self.api_key}
-        response = self.session.get("{}/Services/JSONPRelay.svc/GetRoutes".format(self.base_url),
+        payload: RouteSchedules = {'routeID': route_id, 'ApiKey': self.api_key}
+        response = self.session.get(f'{self.base_url}/Services/JSONPRelay.svc/GetRoutes',
                                     params=cast(Dict, payload))
         return response.json()
 
@@ -352,8 +352,8 @@ class API:
             Longitude
             Heading- Not used
         """
-        payload: RouteSchedules = {"routeID": route_id, "ApiKey": self.api_key}
-        response = self.session.get("{}/Services/JSONPRelay.svc/GetStops".format(self.base_url),
+        payload: RouteSchedules = {'routeID': route_id, 'ApiKey': self.api_key}
+        response = self.session.get(f'{self.base_url}/Services/JSONPRelay.svc/GetStops',
                                     params=cast(Dict, payload))
         return response.json()
 
@@ -371,8 +371,8 @@ class API:
             Latitude
             Longitude
         """
-        payload: RouteSchedules = {"routeID": route_id, "ApiKey": self.api_key}
-        response = self.session.get("{}/Services/JSONPRelay.svc/GetMarkers".format(self.base_url),
+        payload: RouteSchedules = {'routeID': route_id, 'ApiKey': self.api_key}
+        response = self.session.get(f'{self.base_url}/Services/JSONPRelay.svc/GetMarkers',
                                     params=cast(Dict, payload))
         return response.json()
 
@@ -383,13 +383,13 @@ class API:
 
         :return MapConfig: See docs for return information
         """
-        response = self.session.get("{}/Services/JSONPRelay.svc/GetMapConfig".format(self.base_url))
+        response = self.session.get(f'{self.base_url}/Services/JSONPRelay.svc/GetMapConfig')
         return response.json()
 
     @retry(wait=wait_random_exponential(multiplier=1, max=60), stop=stop_after_attempt(7), reraise=True)
     def get_routes_for_map(self) -> QueryResultList:
         """Return the routes with Vehicle Route Name, Vehicle ID, and all stops, etc."""
-        response = self.session.get("{}/Services/JSONPRelay.svc/GetRoutesForMap".format(self.base_url))
+        response = self.session.get(f'{self.base_url}/Services/JSONPRelay.svc/GetRoutesForMap')
         return response.json()
 
     @retry(wait=wait_random_exponential(multiplier=1, max=60), stop=stop_after_attempt(7), reraise=True)
@@ -421,7 +421,7 @@ class API:
             Vehicle
             VehicleID
         """
-        payload: Ridership = {"StartDate": start_date, "EndDate": end_date, "ApiKey": self.api_key}
-        response = self.session.get("{}/Services/JSONPRelay.svc/GetRidershipData".format(self.base_url),
+        payload: Ridership = {'StartDate': start_date, 'EndDate': end_date, 'ApiKey': self.api_key}
+        response = self.session.get(f'{self.base_url}/Services/JSONPRelay.svc/GetRidershipData',
                                     params=cast(Dict, payload))
         return response.json()
