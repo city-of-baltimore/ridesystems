@@ -394,5 +394,6 @@ class Reports:
 
     def _log_controls(self) -> None:
         logger.debug('\n'.join(
-            ['%s: %s *%s*' % (c.name, c.value, c.disabled) if c.disabled else '%s: %s' % (c.name, c.value) for c in
-             self.browser.form.controls]))
+            [f'{c.name}: {c.value} *{c.disabled}*'
+             if c.disabled else f'{c.name}: {c.value}'
+             for c in self.browser.form.controls]))
