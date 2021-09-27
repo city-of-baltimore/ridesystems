@@ -223,7 +223,7 @@ class API:
         if stop_ids:
             payload['routeStopIDs'] = ', '.join(map(str, stop_ids))
 
-        response = self.session.get('f{self.base_url}/Services/JSONPRelay.svc/GetStopArrivalTimes',
+        response = self.session.get(f'{self.base_url}/Services/JSONPRelay.svc/GetStopArrivalTimes',
                                     params=cast(Dict, payload))
         return response.json()
 
